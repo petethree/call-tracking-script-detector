@@ -172,30 +172,38 @@
   // Set up DOM mutation observer
   function observeDOMChanges() {
     const observer = new MutationObserver((mutations) => {
-      let hasPhoneChange = false;
+      try {
+        let hasPhoneChange = false;
 
-      mutations.forEach(mutation => {
-        // Check if text content changed
-        if (mutation.type === 'characterData' || mutation.type === 'childList') {
-          const text = mutation.target.textContent || '';
-          if (text.match(/\d{3}[-.\s]?\d{3}[-.\s]?\d{4}/)) {
-            hasPhoneChange = true;
+        mutations.forEach(mutation => {
+          // Check if text content changed
+          if (mutation.type === 'characterData' || mutation.type === 'childList') {
+            const text = mutation.target.textContent || '';
+            if (text.match(/\d{3}[-.\s]?\d{3}[-.\s]?\d{4}/)) {
+              hasPhoneChange = true;
+            }
+          }
+
+          // Check for attribute changes on tel: links
+          if (mutation.type === 'attributes' && mutation.attributeName === 'href') {
+            const element = mutation.target;
+            if (element.href && element.href.startsWith('tel:')) {
+              hasPhoneChange = true;
+            }
+          }
+        });
+
+        if (hasPhoneChange) {
+          console.log('[Call Tracker Detector] Phone number changed in DOM');
+          scanCurrentNumbers();
+
+          // Only update if extension context is still valid
+          if (isExtensionContextValid()) {
+            updateBadgeAndStorage();
           }
         }
-
-        // Check for attribute changes on tel: links
-        if (mutation.type === 'attributes' && mutation.attributeName === 'href') {
-          const element = mutation.target;
-          if (element.href && element.href.startsWith('tel:')) {
-            hasPhoneChange = true;
-          }
-        }
-      });
-
-      if (hasPhoneChange) {
-        console.log('[Call Tracker Detector] Phone number changed in DOM');
-        scanCurrentNumbers();
-        updateBadgeAndStorage();
+      } catch (error) {
+        console.log('[Call Tracker Detector] Error in mutation observer:', error);
       }
     });
 
@@ -287,23 +295,31 @@
 
     // Step 3: Wait a bit for tracking scripts to execute
     setTimeout(() => {
-      scanCurrentNumbers();
-      const swaps = detectNumberSwaps();
+      try {
+        scanCurrentNumbers();
+        const swaps = detectNumberSwaps();
 
-      console.log('[Call Tracker Detector] Detection complete:', {
-        providers: foundProviders.length,
-        originalNumbers: originalNumbers.size,
-        currentNumbers: currentNumbers.size,
-        swaps: swaps.length
-      });
+        console.log('[Call Tracker Detector] Detection complete:', {
+          providers: foundProviders.length,
+          originalNumbers: originalNumbers.size,
+          currentNumbers: currentNumbers.size,
+          swaps: swaps.length
+        });
 
-      // Step 4: Update badge and storage
-      updateBadgeAndStorage();
+        // Step 4: Update badge and storage (only if context is still valid)
+        if (isExtensionContextValid()) {
+          updateBadgeAndStorage();
+        } else {
+          console.log('[Call Tracker Detector] Extension context invalidated during detection, skipping badge update');
+        }
 
-      // Step 5: Start monitoring for changes
-      observeDOMChanges();
+        // Step 5: Start monitoring for changes
+        observeDOMChanges();
 
-      scanComplete = true;
+        scanComplete = true;
+      } catch (error) {
+        console.log('[Call Tracker Detector] Error in detection timeout:', error);
+      }
     }, 2000); // Wait 2 seconds for scripts to execute
   }
 
