@@ -21,6 +21,21 @@ async function loadProviders() {
 // Initialize
 loadProviders();
 
+// Open side panel when extension icon is clicked
+chrome.action.onClicked.addListener(async (tab) => {
+  console.log('[Background] Extension icon clicked, opening side panel');
+  try {
+    await chrome.sidePanel.open({ windowId: tab.windowId });
+  } catch (error) {
+    console.error('[Background] Error opening side panel:', error);
+  }
+});
+
+// Allow side panel to be opened via setOptions for future flexibility
+chrome.sidePanel
+  .setPanelBehavior({ openPanelOnActionClick: true })
+  .catch((error) => console.error('[Background] Error setting panel behavior:', error));
+
 // Listen for web requests to detect tracking scripts
 chrome.webRequest?.onBeforeRequest.addListener(
   (details) => {
@@ -117,6 +132,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
           color: '#999999' // Gray for no tracking
         });
       }
+
+      // Notify side panel if it's open
+      chrome.runtime.sendMessage({
+        action: 'detectionUpdated',
+        tabId: tabId
+      }).catch(() => {
+        // Side panel may not be open, ignore error
+      });
 
       sendResponse({ success: true });
     }
