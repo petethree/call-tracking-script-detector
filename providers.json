@@ -1,0 +1,78 @@
+{
+  "providers": [
+    {
+      "id": "callrail",
+      "name": "CallRail",
+      "domains": ["calltrk.com", "cdn.calltrk.com"],
+      "scriptPatterns": [
+        "/ls.js",
+        "/track.js",
+        "calltrk"
+      ],
+      "signatures": [
+        "swap_number",
+        "CR.track",
+        "CallRail"
+      ],
+      "description": "CallRail call tracking service"
+    },
+    {
+      "id": "marchex",
+      "name": "Marchex",
+      "domains": ["marchex.io", "cdn.marchex.io"],
+      "scriptPatterns": [
+        "marchex",
+        "mtk"
+      ],
+      "signatures": [
+        "marchex_track",
+        "MTK",
+        "Marchex"
+      ],
+      "description": "Marchex call intelligence platform"
+    },
+    {
+      "id": "whatconverts",
+      "name": "WhatConverts",
+      "domains": ["ksrndkehqnwntyxlhgto.com", "whatconverts.com"],
+      "scriptPatterns": [
+        "ksrndkehqnwntyxlhgto",
+        "whatconverts"
+      ],
+      "signatures": [
+        "WhatConverts",
+        "wc_track"
+      ],
+      "description": "WhatConverts lead tracking software"
+    },
+    {
+      "id": "invoca",
+      "name": "Invoca",
+      "domains": ["invocacdn.com", "invoca.net"],
+      "scriptPatterns": [
+        "invoca.js",
+        "invocacdn"
+      ],
+      "signatures": [
+        "Invoca.PNAPI",
+        "Invoca",
+        "invoca"
+      ],
+      "description": "Invoca call tracking and analytics"
+    },
+    {
+      "id": "800com",
+      "name": "800.com",
+      "domains": ["api.800.com", "800.com"],
+      "scriptPatterns": [
+        "api.800.com",
+        "800tracking"
+      ],
+      "signatures": [
+        "tracking800",
+        "NumberSwap"
+      ],
+      "description": "800.com call tracking service"
+    }
+  ]
+}

@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Call Tracking Detector</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <!-- Header -->
+    <div class="header">
+      <h1>🔍 Call Tracking Detector</h1>
+      <div id="status" class="status">
+        <span class="status-icon">⚡</span>
+        <span id="statusText">Scanning...</span>
+      </div>
+    </div>
+
+    <!-- Detection Results -->
+    <div id="results" class="results">
+
+      <!-- Tracker Detection Section -->
+      <div class="section" id="trackerSection">
+        <h2>📊 Detected Trackers (<span id="trackerCount">0</span>)</h2>
+        <div id="trackerList" class="tracker-list">
+          <p class="empty-state">No tracking scripts detected</p>
+        </div>
+      </div>
+
+      <!-- Phone Numbers Section -->
+      <div class="section" id="numbersSection">
+        <h2>📞 Phone Numbers (<span id="numberCount">0</span>)</h2>
+        <div id="numberList" class="number-list">
+          <p class="empty-state">No phone numbers found</p>
+        </div>
+      </div>
+
+      <!-- Number Swaps Section -->
+      <div class="section" id="swapsSection" style="display: none;">
+        <h2>🔄 Number Swaps Detected (<span id="swapCount">0</span>)</h2>
+        <div id="swapList" class="swap-list">
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="section actions">
+        <h2>🛡️ Script Blocking</h2>
+        <div class="toggle-container">
+          <label class="toggle-label">
+            <input type="checkbox" id="blockingToggle">
+            <span class="toggle-slider"></span>
+            <span class="toggle-text">Block Tracking Scripts</span>
+          </label>
+          <p class="help-text">Page will reload when toggled</p>
+        </div>
+      </div>
+
+      <!-- Traffic Source Testing -->
+      <div class="section">
+        <h2>🧪 Test Traffic Source</h2>
+        <div class="traffic-source">
+          <select id="trafficSource" class="select-input">
+            <option value="">Select Platform...</option>
+            <option value="gclid=test123">Google Ads (gclid)</option>
+            <option value="fbclid=test123">Facebook/Instagram (fbclid)</option>
+            <option value="msclkid=test123">Microsoft Ads (msclkid)</option>
+            <option value="ttclid=test123">TikTok Ads (ttclid)</option>
+            <option value="epik=test123">Pinterest Ads (epik)</option>
+            <option value="ScCid=test123">Snapchat Ads (ScCid)</option>
+            <option value="twclid=test123">Twitter/X Ads (twclid)</option>
+            <option value="li_fat_id=test123">LinkedIn Ads (li_fat_id)</option>
+          </select>
+          <div class="button-group">
+            <button id="applySource" class="btn btn-primary">Apply</button>
+            <button id="clearSource" class="btn btn-secondary">Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Cookie Management -->
+      <div class="section">
+        <h2>🍪 Cookie Management</h2>
+        <button id="clearCookies" class="btn btn-warning btn-block">Clear Domain Cookies</button>
+        <p class="help-text">Clears all cookies for this domain</p>
+      </div>
+
+      <!-- Rescan -->
+      <div class="section">
+        <button id="rescan" class="btn btn-primary btn-block">🔄 Rescan Page</button>
+      </div>
+
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <p>v1.0.0 | <a href="#" id="helpLink">Help</a></p>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
