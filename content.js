@@ -10,9 +10,22 @@
   let providers = [];
   let scanComplete = false;
 
+  // Check if extension context is still valid
+  function isExtensionContextValid() {
+    try {
+      return chrome.runtime && chrome.runtime.id;
+    } catch (e) {
+      return false;
+    }
+  }
+
   // Load provider library
   async function loadProviders() {
     try {
+      if (!isExtensionContextValid()) {
+        console.log('[Call Tracker Detector] Extension context invalidated, skipping provider load');
+        return;
+      }
       const response = await fetch(chrome.runtime.getURL('providers.json'));
       const data = await response.json();
       providers = data.providers || [];
@@ -200,6 +213,12 @@
 
   // Update extension badge and storage
   function updateBadgeAndStorage() {
+    // Check if extension context is valid before proceeding
+    if (!isExtensionContextValid()) {
+      console.log('[Call Tracker Detector] Extension context invalidated, skipping update');
+      return;
+    }
+
     const swaps = detectNumberSwaps();
 
     const results = {
@@ -212,20 +231,28 @@
     };
 
     // Send to background script
-    chrome.runtime.sendMessage({
-      action: 'updateDetection',
-      data: results
-    }).catch(err => {
-      // Extension context may be invalid, ignore
-      console.log('[Call Tracker Detector] Could not send message:', err);
-    });
+    try {
+      chrome.runtime.sendMessage({
+        action: 'updateDetection',
+        data: results
+      }).catch(err => {
+        // Extension context may be invalid, ignore
+        console.log('[Call Tracker Detector] Could not send message:', err);
+      });
+    } catch (err) {
+      console.log('[Call Tracker Detector] Error sending message:', err);
+    }
 
     // Store in chrome.storage for popup
-    chrome.storage.local.set({
-      [`detection_${getTabId()}`]: results
-    }).catch(err => {
-      console.log('[Call Tracker Detector] Could not store results:', err);
-    });
+    try {
+      chrome.storage.local.set({
+        [`detection_${getTabId()}`]: results
+      }).catch(err => {
+        console.log('[Call Tracker Detector] Could not store results:', err);
+      });
+    } catch (err) {
+      console.log('[Call Tracker Detector] Error storing results:', err);
+    }
   }
 
   // Get approximate tab ID (we'll use timestamp as fallback)
@@ -281,30 +308,40 @@
   }
 
   // Listen for messages from popup
-  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-    if (request.action === 'getDetection') {
-      const swaps = detectNumberSwaps();
-      sendResponse({
-        detectedTrackers: detectedTrackers,
-        originalNumbers: Array.from(originalNumbers.values()),
-        currentNumbers: Array.from(currentNumbers.values()),
-        swaps: swaps,
-        scanComplete: scanComplete
-      });
-      return true;
-    }
+  if (isExtensionContextValid()) {
+    try {
+      chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+        if (request.action === 'getDetection') {
+          const swaps = detectNumberSwaps();
+          sendResponse({
+            detectedTrackers: detectedTrackers,
+            originalNumbers: Array.from(originalNumbers.values()),
+            currentNumbers: Array.from(currentNumbers.values()),
+            swaps: swaps,
+            scanComplete: scanComplete
+          });
+          return true;
+        }
 
-    if (request.action === 'rescan') {
-      originalNumbers.clear();
-      currentNumbers.clear();
-      detectedTrackers = [];
-      runDetection();
-      sendResponse({ success: true });
-      return true;
+        if (request.action === 'rescan') {
+          originalNumbers.clear();
+          currentNumbers.clear();
+          detectedTrackers = [];
+          runDetection();
+          sendResponse({ success: true });
+          return true;
+        }
+      });
+    } catch (error) {
+      console.log('[Call Tracker Detector] Could not add message listener:', error);
     }
-  });
+  }
 
   // Start initialization
-  initialize();
+  if (isExtensionContextValid()) {
+    initialize();
+  } else {
+    console.log('[Call Tracker Detector] Extension context invalid at startup, not initializing');
+  }
 
 })();
