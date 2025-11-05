@@ -12,7 +12,7 @@ The Call Tracking Detector currently supports detection for the following provid
 | **Marchex** | marchex.io, cdn.marchex.io | ✅ Active | Detects via MTK object and marchex_track() |
 | **WhatConverts** | ksrndkehqnwntyxlhgto.com, whatconverts.com | ✅ Active | Detects via unique domain pattern |
 | **Invoca** | invocacdn.com, invoca.net | ✅ Active | Detects via Invoca.PNAPI signature |
-| **800.com** | api.800.com, 800.com | 🔄 Under Review | Currently being improved for better detection |
+| **800.com** | api.800.com, app.800.com | ✅ Active | Detects via 800SessionId signature and specific API endpoints |
 
 ### Detection Methods
 

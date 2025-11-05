@@ -63,20 +63,16 @@
     {
       "id": "800com",
       "name": "800.com",
-      "domains": ["api.800.com", "cdn.800.com", "js.800.com"],
+      "domains": ["api.800.com", "app.800.com"],
       "scriptPatterns": [
-        "api.800.com",
-        "trackingNumbers/script",
-        "800.com/companies",
-        "800tracking",
-        "dni"
+        "api.800.com/companies",
+        "app.800.com",
+        "trackingNumbers/script"
       ],
       "signatures": [
-        "tracking800",
-        "NumberSwap",
-        "DNI",
-        "dynamicNumberInsertion",
-        "800SessionId"
+        "800SessionId",
+        "_800tracking",
+        "window._800"
       ],
       "description": "800.com call tracking service with Dynamic Number Insertion (DNI)"
     }
