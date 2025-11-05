@@ -131,6 +131,41 @@ body {
   gap: 6px;
 }
 
+/* Collapsible Sections */
+.section-header.collapsible {
+  cursor: pointer;
+  user-select: none;
+  justify-content: space-between;
+  transition: color 0.2s;
+}
+
+.section-header.collapsible:hover {
+  color: #667eea;
+}
+
+.collapse-icon {
+  font-size: 12px;
+  transition: transform 0.2s;
+  margin-left: auto;
+}
+
+.section-header.collapsed .collapse-icon {
+  transform: rotate(-90deg);
+}
+
+.collapsible-content {
+  max-height: 1000px;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out, opacity 0.3s ease-out;
+  opacity: 1;
+}
+
+.collapsible-content.collapsed {
+  max-height: 0;
+  opacity: 0;
+  margin-bottom: 0;
+}
+
 /* Empty State */
 .empty-state {
   color: #999;

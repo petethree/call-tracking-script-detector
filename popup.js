@@ -275,10 +275,18 @@ function setupEventListeners(tab) {
     }
 
     const currentUrl = new URL(tab.url);
-    const separator = currentUrl.search ? '&' : '?';
-    const newUrl = currentUrl.href + separator + param;
 
-    chrome.tabs.update(tab.id, { url: newUrl });
+    // Remove existing test parameters
+    const testParams = ['gclid', 'fbclid', 'msclkid', 'ttclid', 'epik', 'ScCid', 'twclid', 'li_fat_id', 'yclid'];
+    testParams.forEach(testParam => {
+      currentUrl.searchParams.delete(testParam);
+    });
+
+    // Add the new parameter
+    const [paramName, paramValue] = param.split('=');
+    currentUrl.searchParams.set(paramName, paramValue);
+
+    chrome.tabs.update(tab.id, { url: currentUrl.href });
     window.close();
   });
 
@@ -329,7 +337,13 @@ function setupEventListeners(tab) {
   // Help link
   document.getElementById('helpLink').addEventListener('click', (e) => {
     e.preventDefault();
-    chrome.tabs.create({ url: 'https://github.com/yourusername/call-tracking-detector' });
+    chrome.tabs.create({ url: 'https://github.com/petethree/call-tracking-script-detector' });
+  });
+
+  // Suggest Feature link
+  document.getElementById('featureLink').addEventListener('click', (e) => {
+    e.preventDefault();
+    chrome.tabs.create({ url: 'https://docs.google.com/forms/d/e/1FAIpQLSeBxDix5LOQY_nxflpipyLUBlLI_11Ac0WyMs0yYLeZJIPrOg/viewform?usp=dialog' });
   });
 }
 

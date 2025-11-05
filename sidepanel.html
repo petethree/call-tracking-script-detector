@@ -28,24 +28,33 @@
 
       <!-- Tracker Detection Section -->
       <div class="section" id="trackerSection">
-        <h2>📊 Detected Trackers (<span id="trackerCount">0</span>)</h2>
-        <div id="trackerList" class="tracker-list">
+        <h2 class="section-header collapsible" data-target="trackerList">
+          📊 Detected Trackers (<span id="trackerCount">0</span>)
+          <span class="collapse-icon">▼</span>
+        </h2>
+        <div id="trackerList" class="tracker-list collapsible-content">
           <p class="empty-state">No tracking scripts detected</p>
         </div>
       </div>
 
       <!-- Phone Numbers Section -->
       <div class="section" id="numbersSection">
-        <h2>📞 Phone Numbers (<span id="numberCount">0</span>)</h2>
-        <div id="numberList" class="number-list">
+        <h2 class="section-header collapsible" data-target="numberList">
+          📞 Phone Numbers (<span id="numberCount">0</span>)
+          <span class="collapse-icon">▼</span>
+        </h2>
+        <div id="numberList" class="number-list collapsible-content">
           <p class="empty-state">No phone numbers found</p>
         </div>
       </div>
 
       <!-- Number Swaps Section -->
       <div class="section" id="swapsSection" style="display: none;">
-        <h2>🔄 Number Swaps Detected (<span id="swapCount">0</span>)</h2>
-        <div id="swapList" class="swap-list">
+        <h2 class="section-header collapsible" data-target="swapList">
+          🔄 Number Swaps Detected (<span id="swapCount">0</span>)
+          <span class="collapse-icon">▼</span>
+        </h2>
+        <div id="swapList" class="swap-list collapsible-content">
         </div>
       </div>
 
@@ -100,7 +109,7 @@
 
     <!-- Footer -->
     <div class="footer">
-      <p>v1.0.0 | <a href="#" id="helpLink">Help</a></p>
+      <p>v1.0.0 | <a href="#" id="helpLink">Help</a> | <a href="#" id="featureLink">Suggest Feature</a></p>
     </div>
   </div>
 

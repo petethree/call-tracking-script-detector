@@ -360,6 +360,19 @@ function setupEventListeners() {
     window.close();
   });
 
+  // Collapsible sections
+  document.querySelectorAll('.collapsible').forEach(header => {
+    header.addEventListener('click', () => {
+      const targetId = header.getAttribute('data-target');
+      const content = document.getElementById(targetId);
+
+      if (content) {
+        header.classList.toggle('collapsed');
+        content.classList.toggle('collapsed');
+      }
+    });
+  });
+
   // Blocking toggle
   const blockingToggle = document.getElementById('blockingToggle');
   blockingToggle?.addEventListener('change', async (e) => {
@@ -395,10 +408,18 @@ function setupEventListeners() {
 
     const tab = await chrome.tabs.get(currentTabId);
     const currentUrl = new URL(tab.url);
-    const separator = currentUrl.search ? '&' : '?';
-    const newUrl = currentUrl.href + separator + param;
 
-    chrome.tabs.update(currentTabId, { url: newUrl });
+    // Remove existing test parameters
+    const testParams = ['gclid', 'fbclid', 'msclkid', 'ttclid', 'epik', 'ScCid', 'twclid', 'li_fat_id', 'yclid'];
+    testParams.forEach(testParam => {
+      currentUrl.searchParams.delete(testParam);
+    });
+
+    // Add the new parameter
+    const [paramName, paramValue] = param.split('=');
+    currentUrl.searchParams.set(paramName, paramValue);
+
+    chrome.tabs.update(currentTabId, { url: currentUrl.href });
   });
 
   // Clear traffic source
@@ -449,6 +470,12 @@ function setupEventListeners() {
   document.getElementById('helpLink')?.addEventListener('click', (e) => {
     e.preventDefault();
     chrome.tabs.create({ url: 'https://github.com/petethree/call-tracking-script-detector' });
+  });
+
+  // Suggest Feature link
+  document.getElementById('featureLink')?.addEventListener('click', (e) => {
+    e.preventDefault();
+    chrome.tabs.create({ url: 'https://docs.google.com/forms/d/e/1FAIpQLSeBxDix5LOQY_nxflpipyLUBlLI_11Ac0WyMs0yYLeZJIPrOg/viewform?usp=dialog' });
   });
 }
 
