@@ -196,6 +196,7 @@
 
   function observeDOMChanges() {
     mutationObserver = new MutationObserver((mutations) => {
+      // Wrap everything in try-catch to handle extension context invalidation
       try {
         // Check context validity first and disconnect if invalid
         if (!isExtensionContextValid()) {
@@ -209,37 +210,48 @@
 
         let hasPhoneChange = false;
 
-        mutations.forEach(mutation => {
-          try {
-            // Additional safety check: ensure target exists and is valid
-            if (!mutation.target || !mutation.target.nodeType) {
-              return;
-            }
+        // Process mutations with additional try-catch for accessing mutation properties
+        try {
+          mutations.forEach(mutation => {
+            try {
+              // Additional safety check: ensure target exists and is valid
+              if (!mutation.target || !mutation.target.nodeType) {
+                return;
+              }
 
-            // Check if text content changed
-            if (mutation.type === 'characterData' || mutation.type === 'childList') {
-              // Safely access textContent with null checks
-              const target = mutation.target;
-              if (target && typeof target.textContent === 'string') {
-                const text = target.textContent || '';
-                if (text.match(/\d{3}[-.\s]?\d{3}[-.\s]?\d{4}/)) {
+              // Check if text content changed
+              if (mutation.type === 'characterData' || mutation.type === 'childList') {
+                // Safely access textContent with null checks
+                const target = mutation.target;
+                if (target && typeof target.textContent === 'string') {
+                  const text = target.textContent || '';
+                  if (text.match(/\d{3}[-.\s]?\d{3}[-.\s]?\d{4}/)) {
+                    hasPhoneChange = true;
+                  }
+                }
+              }
+
+              // Check for attribute changes on tel: links
+              if (mutation.type === 'attributes' && mutation.attributeName === 'href') {
+                const element = mutation.target;
+                if (element && element.href && typeof element.href === 'string' && element.href.startsWith('tel:')) {
                   hasPhoneChange = true;
                 }
               }
+            } catch (mutationError) {
+              // Silently ignore individual mutation errors to prevent observer crash
+              // This can happen when extension context becomes invalid mid-processing
             }
-
-            // Check for attribute changes on tel: links
-            if (mutation.type === 'attributes' && mutation.attributeName === 'href') {
-              const element = mutation.target;
-              if (element && element.href && typeof element.href === 'string' && element.href.startsWith('tel:')) {
-                hasPhoneChange = true;
-              }
-            }
-          } catch (mutationError) {
-            // Silently ignore individual mutation errors to prevent observer crash
-            console.log('[Call Tracker Detector] Skipping problematic mutation:', mutationError.message);
+          });
+        } catch (mutationsError) {
+          // If accessing mutations array fails, context is likely invalid
+          // Disconnect observer and return
+          if (mutationObserver) {
+            mutationObserver.disconnect();
+            mutationObserver = null;
           }
-        });
+          return;
+        }
 
         if (hasPhoneChange) {
           console.log('[Call Tracker Detector] Phone number changed in DOM');
@@ -251,11 +263,15 @@
           }
         }
       } catch (error) {
-        console.log('[Call Tracker Detector] Error in mutation observer:', error);
-        // Disconnect on error to prevent further issues
+        // Final catch-all for any other errors
+        // Disconnect observer to prevent further errors
         if (mutationObserver) {
-          mutationObserver.disconnect();
-          mutationObserver = null;
+          try {
+            mutationObserver.disconnect();
+            mutationObserver = null;
+          } catch (e) {
+            // Even disconnect can fail if context is invalid
+          }
         }
       }
     });
