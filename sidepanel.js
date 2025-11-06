@@ -451,23 +451,36 @@ function displaySwaps(swaps) {
 
   swapList.innerHTML = '';
 
+  // Add info box at the top
+  const infoBox = document.createElement('div');
+  infoBox.className = 'swap-info';
+  infoBox.innerHTML = `
+    <strong>Number Swaps Detected!</strong> The tracking script has replaced original phone numbers with tracking numbers.
+    Below you can see which original numbers were on the page and what tracking numbers are now showing to visitors.
+  `;
+  swapList.appendChild(infoBox);
+
   swaps.forEach(swap => {
     const swapCard = document.createElement('div');
     swapCard.className = 'swap-card';
 
     const locations = swap.locations?.length > 0
-      ? `<div class="swap-location">📍 ${escapeHtml(swap.locations.join(', '))}</div>`
+      ? `<div class="swap-location">📍 Found in: ${escapeHtml(swap.locations.join(', '))}</div>`
       : '';
 
     swapCard.innerHTML = `
-      <div class="swap-row">
-        <span class="swap-label">Original:</span>
-        <span class="swap-value">${escapeHtml(swap.original)}</span>
+      <div class="swap-row original">
+        <div>
+          <div class="swap-label">Original Number on Page</div>
+          <div class="swap-value original">${escapeHtml(swap.original)}</div>
+        </div>
       </div>
-      <div class="swap-arrow">→</div>
-      <div class="swap-row">
-        <span class="swap-label">Tracking:</span>
-        <span class="swap-value tracking">${escapeHtml(swap.tracking)}</span>
+      <div class="swap-arrow">↓</div>
+      <div class="swap-row tracking">
+        <div>
+          <div class="swap-label">Swapped to Tracking Number</div>
+          <div class="swap-value tracking">${escapeHtml(swap.tracking)}</div>
+        </div>
       </div>
       ${locations}
     `;

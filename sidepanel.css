@@ -370,35 +370,73 @@ body {
 .swap-list {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
+}
+
+.swap-info {
+  background: #e3f2fd;
+  border-left: 4px solid #1976d2;
+  border-radius: 4px;
+  padding: 10px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: #555;
+  line-height: 1.5;
+}
+
+.swap-info strong {
+  color: #1976d2;
 }
 
 .swap-card {
   background: #fff8e1;
-  border: 1px solid #ffe082;
-  border-radius: 6px;
-  padding: 10px;
+  border: 2px solid #ffe082;
+  border-radius: 8px;
+  padding: 14px;
+  transition: all 0.2s;
+}
+
+.swap-card:hover {
+  border-color: #ffc107;
+  box-shadow: 0 2px 8px rgba(255, 193, 7, 0.2);
 }
 
 .swap-row {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin: 4px 0;
-  flex-wrap: wrap;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-start;
+  margin: 6px 0;
+  padding: 10px;
+  background: white;
+  border-radius: 6px;
+  gap: 4px;
+}
+
+.swap-row.original {
+  border-left: 4px solid #1976d2;
+}
+
+.swap-row.tracking {
+  border-left: 4px solid #f57c00;
 }
 
 .swap-label {
-  font-size: 12px;
+  font-size: 11px;
   color: #666;
-  font-weight: 500;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .swap-value {
-  font-size: 13px;
-  font-weight: 600;
+  font-size: 15px;
+  font-weight: 700;
   color: #333;
+  letter-spacing: 0.3px;
+}
+
+.swap-value.original {
+  color: #1976d2;
 }
 
 .swap-value.tracking {
@@ -407,16 +445,17 @@ body {
 
 .swap-arrow {
   text-align: center;
-  font-size: 16px;
+  font-size: 20px;
+  font-weight: bold;
   color: #f57c00;
-  margin: 4px 0;
+  margin: 8px 0;
 }
 
 .swap-location {
   font-size: 11px;
   color: #666;
-  margin-top: 6px;
-  padding-top: 6px;
+  margin-top: 10px;
+  padding-top: 10px;
   border-top: 1px solid #ffe082;
 }
 
