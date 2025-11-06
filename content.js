@@ -3,18 +3,40 @@
 (function() {
   'use strict';
 
+  // Early exit if extension context is invalid
+  // This prevents errors on pages where content script was injected before extension reload
+  try {
+    if (!chrome.runtime || !chrome.runtime.id) {
+      console.log('[Call Tracker Detector] Extension context invalid at script load, exiting');
+      return;
+    }
+  } catch (e) {
+    console.log('[Call Tracker Detector] Extension context check failed, exiting');
+    return;
+  }
+
   // State management
   let originalNumbers = new Map(); // Store original numbers before any swaps
   let detectedTrackers = [];
   let currentNumbers = new Map();
   let providers = [];
   let scanComplete = false;
+  let contextInvalidated = false; // Flag to track if we've detected invalidation
 
   // Check if extension context is still valid
   function isExtensionContextValid() {
     try {
-      return chrome.runtime && chrome.runtime.id;
+      const isValid = chrome.runtime && chrome.runtime.id;
+      if (!isValid && !contextInvalidated) {
+        contextInvalidated = true;
+        console.log('[Call Tracker Detector] Extension context became invalid during execution');
+      }
+      return isValid;
     } catch (e) {
+      if (!contextInvalidated) {
+        contextInvalidated = true;
+        console.log('[Call Tracker Detector] Extension context check exception:', e.message);
+      }
       return false;
     }
   }
@@ -170,9 +192,21 @@
   }
 
   // Set up DOM mutation observer
+  let mutationObserver = null;
+
   function observeDOMChanges() {
-    const observer = new MutationObserver((mutations) => {
+    mutationObserver = new MutationObserver((mutations) => {
       try {
+        // Check context validity first and disconnect if invalid
+        if (!isExtensionContextValid()) {
+          console.log('[Call Tracker Detector] Context invalid, disconnecting observer');
+          if (mutationObserver) {
+            mutationObserver.disconnect();
+            mutationObserver = null;
+          }
+          return;
+        }
+
         let hasPhoneChange = false;
 
         mutations.forEach(mutation => {
@@ -204,19 +238,28 @@
         }
       } catch (error) {
         console.log('[Call Tracker Detector] Error in mutation observer:', error);
+        // Disconnect on error to prevent further issues
+        if (mutationObserver) {
+          mutationObserver.disconnect();
+          mutationObserver = null;
+        }
       }
     });
 
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-      characterData: true,
-      characterDataOldValue: true,
-      attributes: true,
-      attributeFilter: ['href']
-    });
+    if (mutationObserver && isExtensionContextValid()) {
+      mutationObserver.observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true,
+        characterDataOldValue: true,
+        attributes: true,
+        attributeFilter: ['href']
+      });
 
-    console.log('[Call Tracker Detector] DOM observer active');
+      console.log('[Call Tracker Detector] DOM observer active');
+    } else {
+      console.log('[Call Tracker Detector] Cannot start observer - context invalid');
+    }
   }
 
   // Update extension badge and storage
