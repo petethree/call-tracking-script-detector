@@ -75,10 +75,8 @@ function displayResults(data) {
   // Display phone numbers
   displayPhoneNumbers(originalNumbers, currentNumbers);
 
-  // Display swaps
-  if (swaps.length > 0) {
-    displaySwaps(swaps);
-  }
+  // Display swaps (always call, it will handle empty state)
+  displaySwaps(swaps);
 }
 
 // Update status message
@@ -250,12 +248,15 @@ function displayMoreNumbers() {
 
 // Display number swaps
 function displaySwaps(swaps) {
-  const swapSection = document.getElementById('swapsSection');
   const swapCount = document.getElementById('swapCount');
   const swapList = document.getElementById('swapList');
 
   swapCount.textContent = swaps.length;
-  swapSection.style.display = 'block';
+
+  if (swaps.length === 0) {
+    swapList.innerHTML = '<p class="empty-state">No number swaps detected yet. If tracking scripts are active, swaps may appear as the page loads or when conditions change.</p>';
+    return;
+  }
 
   swapList.innerHTML = '';
 
