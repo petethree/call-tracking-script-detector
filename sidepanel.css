@@ -217,6 +217,104 @@ body {
   word-break: break-all;
 }
 
+/* Detection Details */
+.detection-details {
+  margin-top: 8px;
+}
+
+.detection-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  padding: 6px 8px;
+  margin: 0;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 500;
+  color: #667eea;
+  border-radius: 4px;
+  transition: background 0.2s;
+  width: 100%;
+  text-align: left;
+}
+
+.detection-toggle:hover {
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.detection-toggle .toggle-icon {
+  font-size: 10px;
+  transition: transform 0.2s;
+  display: inline-block;
+}
+
+.detection-toggle.collapsed .toggle-icon {
+  transform: rotate(-90deg);
+}
+
+.detection-details-body {
+  max-height: 500px;
+  overflow: hidden;
+  transition: max-height 0.3s ease-out;
+  margin-top: 4px;
+}
+
+.detection-details-body.collapsed {
+  max-height: 0;
+}
+
+.detection-details-content {
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 10px;
+}
+
+.detection-section {
+  margin-bottom: 12px;
+}
+
+.detection-section:last-child {
+  margin-bottom: 0;
+}
+
+.detection-section-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: #555;
+  margin-bottom: 6px;
+}
+
+.detection-item {
+  margin-bottom: 6px;
+  font-size: 11px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.detection-item:last-child {
+  margin-bottom: 0;
+}
+
+.detection-label {
+  font-weight: 500;
+  color: #666;
+}
+
+.detection-value {
+  color: #333;
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.detection-value::before {
+  content: '';
+  margin-right: 4px;
+}
+
 /* Number Cards */
 .number-list {
   display: flex;

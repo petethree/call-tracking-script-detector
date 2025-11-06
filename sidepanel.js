@@ -234,26 +234,92 @@ function displayTrackers(trackers) {
     grouped[tracker.provider].push(tracker);
   });
 
-  Object.entries(grouped).forEach(([provider, scripts]) => {
+  Object.entries(grouped).forEach(([provider, scripts], index) => {
     const trackerCard = document.createElement('div');
     trackerCard.className = 'tracker-card';
 
-    const scriptUrls = scripts.map(s => {
-      if (s.isInline) {
-        return '<div class="script-url">📄 Inline Script</div>';
-      }
-      return `<div class="script-url">🔗 ${escapeHtml(s.scriptUrl)}</div>`;
-    }).join('');
+    // Generate unique ID for this tracker's details
+    const detailsId = `tracker-details-${index}`;
+
+    // Count different detection methods
+    const externalScripts = scripts.filter(s => !s.isInline);
+    const inlineScripts = scripts.filter(s => s.isInline);
+
+    // Build detection details
+    let detailsHtml = '<div class="detection-details-content">';
+
+    // External scripts section
+    if (externalScripts.length > 0) {
+      detailsHtml += '<div class="detection-section">';
+      detailsHtml += '<div class="detection-section-title">🔗 External Scripts Detected:</div>';
+      externalScripts.forEach(s => {
+        detailsHtml += `<div class="detection-item">
+          <span class="detection-label">Script URL:</span>
+          <span class="detection-value">${escapeHtml(s.scriptUrl)}</span>
+        </div>`;
+      });
+      detailsHtml += '</div>';
+    }
+
+    // Inline scripts section
+    if (inlineScripts.length > 0) {
+      detailsHtml += '<div class="detection-section">';
+      detailsHtml += '<div class="detection-section-title">📄 Inline Scripts Detected:</div>';
+      detailsHtml += `<div class="detection-item">
+        <span class="detection-label">Count:</span>
+        <span class="detection-value">${inlineScripts.length} inline script(s) with ${escapeHtml(provider)} signatures</span>
+      </div>`;
+      detailsHtml += '</div>';
+    }
+
+    // Detection method explanation
+    detailsHtml += '<div class="detection-section">';
+    detailsHtml += '<div class="detection-section-title">🔍 Detection Method:</div>';
+    detailsHtml += '<div class="detection-item">';
+    if (externalScripts.length > 0) {
+      detailsHtml += '<span class="detection-value">✓ Matched script domain/URL pattern</span>';
+    }
+    if (inlineScripts.length > 0) {
+      detailsHtml += '<span class="detection-value">✓ Found provider-specific JavaScript signatures</span>';
+    }
+    detailsHtml += '</div>';
+    detailsHtml += '</div>';
+
+    detailsHtml += '</div>'; // Close detection-details-content
 
     trackerCard.innerHTML = `
       <div class="tracker-header">
         <span class="tracker-name">${escapeHtml(provider)}</span>
         <span class="tracker-badge">${scripts.length} script(s)</span>
       </div>
-      ${scriptUrls}
+      <div class="detection-details">
+        <button class="detection-toggle" data-target="${detailsId}" aria-expanded="true">
+          <span class="toggle-icon">▼</span>
+          <span class="toggle-text">Detection Details</span>
+        </button>
+        <div id="${detailsId}" class="detection-details-body">
+          ${detailsHtml}
+        </div>
+      </div>
     `;
 
     trackerList.appendChild(trackerCard);
+  });
+
+  // Add event listeners for detection toggles
+  document.querySelectorAll('.detection-toggle').forEach(toggle => {
+    toggle.addEventListener('click', (e) => {
+      e.preventDefault();
+      const targetId = toggle.getAttribute('data-target');
+      const detailsBody = document.getElementById(targetId);
+      const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
+
+      if (detailsBody) {
+        detailsBody.classList.toggle('collapsed');
+        toggle.classList.toggle('collapsed');
+        toggle.setAttribute('aria-expanded', !isExpanded);
+      }
+    });
   });
 }
 
