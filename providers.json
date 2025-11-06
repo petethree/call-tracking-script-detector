@@ -65,9 +65,8 @@
       "name": "800.com",
       "domains": ["api.800.com", "app.800.com"],
       "scriptPatterns": [
-        "api.800.com/companies",
-        "app.800.com",
-        "trackingNumbers/script"
+        "api.800.com",
+        "app.800.com"
       ],
       "signatures": [
         "800SessionId",

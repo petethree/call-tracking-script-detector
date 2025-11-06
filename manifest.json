@@ -8,6 +8,8 @@
     "storage",
     "cookies",
     "declarativeNetRequest",
+    "declarativeNetRequestFeedback",
+    "webRequest",
     "scripting",
     "tabs",
     "sidePanel"
