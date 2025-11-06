@@ -142,6 +142,11 @@ function displayTrackers(trackers) {
   });
 }
 
+// Store all numbers for pagination
+let allPhoneNumbersData = [];
+let displayedNumberCount = 0;
+const NUMBERS_PER_PAGE = 10;
+
 // Display phone numbers
 function displayPhoneNumbers(originalNumbers, currentNumbers) {
   const numberCount = document.getElementById('numberCount');
@@ -173,12 +178,41 @@ function displayPhoneNumbers(originalNumbers, currentNumbers) {
 
   if (allNumbers.size === 0) {
     numberList.innerHTML = '<p class="empty-state">No phone numbers found</p>';
+    allPhoneNumbersData = [];
+    displayedNumberCount = 0;
     return;
   }
 
-  numberList.innerHTML = '';
+  // Store all numbers data for pagination
+  allPhoneNumbersData = Array.from(allNumbers.entries()).map(([normalized, info]) => ({
+    normalized,
+    info
+  }));
 
-  allNumbers.forEach((info, normalized) => {
+  // Reset and display first batch
+  numberList.innerHTML = '';
+  displayedNumberCount = 0;
+  displayMoreNumbers();
+}
+
+// Display the next batch of phone numbers
+function displayMoreNumbers() {
+  const numberList = document.getElementById('numberList');
+
+  // Remove existing "Show More" button if present
+  const existingButton = numberList.querySelector('.show-more-btn');
+  if (existingButton) {
+    existingButton.remove();
+  }
+
+  // Calculate how many to show in this batch
+  const startIndex = displayedNumberCount;
+  const endIndex = Math.min(startIndex + NUMBERS_PER_PAGE, allPhoneNumbersData.length);
+
+  // Display the batch
+  for (let i = startIndex; i < endIndex; i++) {
+    const { normalized, info } = allPhoneNumbersData[i];
+
     const numberCard = document.createElement('div');
     numberCard.className = 'number-card';
 
@@ -199,7 +233,19 @@ function displayPhoneNumbers(originalNumbers, currentNumbers) {
     `;
 
     numberList.appendChild(numberCard);
-  });
+  }
+
+  displayedNumberCount = endIndex;
+
+  // Add "Show More" button if there are more numbers
+  if (displayedNumberCount < allPhoneNumbersData.length) {
+    const showMoreBtn = document.createElement('button');
+    showMoreBtn.className = 'btn btn-secondary btn-block show-more-btn';
+    showMoreBtn.style.marginTop = '12px';
+    showMoreBtn.textContent = `Show More (${allPhoneNumbersData.length - displayedNumberCount} remaining)`;
+    showMoreBtn.addEventListener('click', displayMoreNumbers);
+    numberList.appendChild(showMoreBtn);
+  }
 }
 
 // Display number swaps

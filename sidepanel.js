@@ -293,11 +293,11 @@ function displayTrackers(trackers) {
         <span class="tracker-badge">${scripts.length} script(s)</span>
       </div>
       <div class="detection-details">
-        <button class="detection-toggle" data-target="${detailsId}" aria-expanded="true">
+        <button class="detection-toggle collapsed" data-target="${detailsId}" aria-expanded="false">
           <span class="toggle-icon">▼</span>
           <span class="toggle-text">Detection Details</span>
         </button>
-        <div id="${detailsId}" class="detection-details-body">
+        <div id="${detailsId}" class="detection-details-body collapsed">
           ${detailsHtml}
         </div>
       </div>
@@ -322,6 +322,11 @@ function displayTrackers(trackers) {
     });
   });
 }
+
+// Store all numbers for pagination
+let allPhoneNumbersData = [];
+let displayedNumberCount = 0;
+const NUMBERS_PER_PAGE = 10;
 
 // Display phone numbers
 function displayPhoneNumbers(originalNumbers, currentNumbers) {
@@ -354,12 +359,48 @@ function displayPhoneNumbers(originalNumbers, currentNumbers) {
 
   if (allNumbers.size === 0) {
     numberList.innerHTML = '<p class="empty-state">No phone numbers found</p>';
+    allPhoneNumbersData = [];
+    displayedNumberCount = 0;
     return;
   }
 
-  numberList.innerHTML = '';
+  // Store all numbers data for pagination
+  allPhoneNumbersData = Array.from(allNumbers.entries()).map(([normalized, info]) => ({
+    normalized,
+    info
+  }));
 
-  allNumbers.forEach((info, normalized) => {
+  // Reset and display first batch
+  numberList.innerHTML = '';
+  displayedNumberCount = 0;
+  displayMoreNumbers();
+
+  // Clear any existing search and reset
+  const searchInput = document.getElementById('numberSearch');
+  if (searchInput) {
+    searchInput.value = '';
+    updateSearchMatchCount(allNumbers.size, allNumbers.size);
+  }
+}
+
+// Display the next batch of phone numbers
+function displayMoreNumbers() {
+  const numberList = document.getElementById('numberList');
+
+  // Remove existing "Show More" button if present
+  const existingButton = numberList.querySelector('.show-more-btn');
+  if (existingButton) {
+    existingButton.remove();
+  }
+
+  // Calculate how many to show in this batch
+  const startIndex = displayedNumberCount;
+  const endIndex = Math.min(startIndex + NUMBERS_PER_PAGE, allPhoneNumbersData.length);
+
+  // Display the batch
+  for (let i = startIndex; i < endIndex; i++) {
+    const { normalized, info } = allPhoneNumbersData[i];
+
     const numberCard = document.createElement('div');
     numberCard.className = 'number-card';
 
@@ -384,13 +425,18 @@ function displayPhoneNumbers(originalNumbers, currentNumbers) {
     `;
 
     numberList.appendChild(numberCard);
-  });
+  }
 
-  // Clear any existing search and reset
-  const searchInput = document.getElementById('numberSearch');
-  if (searchInput) {
-    searchInput.value = '';
-    updateSearchMatchCount(allNumbers.size, allNumbers.size);
+  displayedNumberCount = endIndex;
+
+  // Add "Show More" button if there are more numbers
+  if (displayedNumberCount < allPhoneNumbersData.length) {
+    const showMoreBtn = document.createElement('button');
+    showMoreBtn.className = 'btn btn-secondary btn-block show-more-btn';
+    showMoreBtn.style.marginTop = '12px';
+    showMoreBtn.textContent = `Show More (${allPhoneNumbersData.length - displayedNumberCount} remaining)`;
+    showMoreBtn.addEventListener('click', displayMoreNumbers);
+    numberList.appendChild(showMoreBtn);
   }
 }
 
@@ -432,48 +478,61 @@ function displaySwaps(swaps) {
 
 // Filter phone numbers based on search query
 function filterPhoneNumbers(searchQuery) {
-  const numberCards = document.querySelectorAll('.number-card');
-  let matchCount = 0;
-  let totalCount = numberCards.length;
+  const numberList = document.getElementById('numberList');
 
   if (!searchQuery || searchQuery.trim() === '') {
-    // Show all cards if search is empty
-    numberCards.forEach(card => {
-      card.classList.remove('hidden');
-      // Remove any highlighting
-      const numberValue = card.querySelector('.number-value');
-      if (numberValue) {
-        const originalNumber = card.getAttribute('data-formatted');
-        numberValue.innerHTML = escapeHtml(originalNumber);
-      }
-    });
-    updateSearchMatchCount(totalCount, totalCount);
+    // Return to paginated view when search is cleared
+    numberList.innerHTML = '';
+    displayedNumberCount = 0;
+    displayMoreNumbers();
+    updateSearchMatchCount(allPhoneNumbersData.length, allPhoneNumbersData.length);
     return;
   }
 
   const query = searchQuery.toLowerCase().replace(/\D/g, ''); // Remove non-digits from query
+  let matchCount = 0;
 
-  numberCards.forEach(card => {
-    const normalized = card.getAttribute('data-number') || '';
-    const formatted = card.getAttribute('data-formatted') || '';
+  // Clear list and show all matching numbers (no pagination when searching)
+  numberList.innerHTML = '';
 
+  allPhoneNumbersData.forEach(({ normalized, info }) => {
     // Check if the query matches any part of the normalized number
     if (normalized.includes(query)) {
-      card.classList.remove('hidden');
       matchCount++;
 
+      const numberCard = document.createElement('div');
+      numberCard.className = 'number-card';
+      numberCard.setAttribute('data-number', normalized);
+      numberCard.setAttribute('data-formatted', info.number);
+
+      const badge = info.isTracking
+        ? '<span class="number-badge tracking">Tracking</span>'
+        : '<span class="number-badge original">Original</span>';
+
+      const locations = info.locations.length > 0
+        ? `<div class="number-location">📍 ${escapeHtml(info.locations.join(', '))}</div>`
+        : '';
+
       // Highlight matching part in the display
-      const numberValue = card.querySelector('.number-value');
-      if (numberValue) {
-        const highlightedNumber = highlightMatch(formatted, query);
-        numberValue.innerHTML = highlightedNumber;
-      }
-    } else {
-      card.classList.add('hidden');
+      const highlightedNumber = highlightMatch(info.number, query);
+
+      numberCard.innerHTML = `
+        <div class="number-header">
+          <span class="number-value">${highlightedNumber}</span>
+          ${badge}
+        </div>
+        ${locations}
+      `;
+
+      numberList.appendChild(numberCard);
     }
   });
 
-  updateSearchMatchCount(matchCount, totalCount);
+  if (matchCount === 0) {
+    numberList.innerHTML = '<p class="empty-state">No matching phone numbers found</p>';
+  }
+
+  updateSearchMatchCount(matchCount, allPhoneNumbersData.length);
 }
 
 // Highlight matching digits in the phone number

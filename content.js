@@ -210,20 +210,34 @@
         let hasPhoneChange = false;
 
         mutations.forEach(mutation => {
-          // Check if text content changed
-          if (mutation.type === 'characterData' || mutation.type === 'childList') {
-            const text = mutation.target.textContent || '';
-            if (text.match(/\d{3}[-.\s]?\d{3}[-.\s]?\d{4}/)) {
-              hasPhoneChange = true;
+          try {
+            // Additional safety check: ensure target exists and is valid
+            if (!mutation.target || !mutation.target.nodeType) {
+              return;
             }
-          }
 
-          // Check for attribute changes on tel: links
-          if (mutation.type === 'attributes' && mutation.attributeName === 'href') {
-            const element = mutation.target;
-            if (element.href && element.href.startsWith('tel:')) {
-              hasPhoneChange = true;
+            // Check if text content changed
+            if (mutation.type === 'characterData' || mutation.type === 'childList') {
+              // Safely access textContent with null checks
+              const target = mutation.target;
+              if (target && typeof target.textContent === 'string') {
+                const text = target.textContent || '';
+                if (text.match(/\d{3}[-.\s]?\d{3}[-.\s]?\d{4}/)) {
+                  hasPhoneChange = true;
+                }
+              }
             }
+
+            // Check for attribute changes on tel: links
+            if (mutation.type === 'attributes' && mutation.attributeName === 'href') {
+              const element = mutation.target;
+              if (element && element.href && typeof element.href === 'string' && element.href.startsWith('tel:')) {
+                hasPhoneChange = true;
+              }
+            }
+          } catch (mutationError) {
+            // Silently ignore individual mutation errors to prevent observer crash
+            console.log('[Call Tracker Detector] Skipping problematic mutation:', mutationError.message);
           }
         });
 
