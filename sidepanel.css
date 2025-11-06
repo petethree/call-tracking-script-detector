@@ -388,6 +388,51 @@ body {
   border-color: #667eea;
 }
 
+/* Search Box */
+.search-container {
+  margin-bottom: 12px;
+  position: relative;
+}
+
+.search-input {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  font-size: 13px;
+  transition: border-color 0.2s;
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.1);
+}
+
+.search-input::placeholder {
+  color: #999;
+}
+
+.search-match-count {
+  display: block;
+  font-size: 11px;
+  color: #666;
+  margin-top: 4px;
+  text-align: right;
+}
+
+/* Number cards with search highlighting */
+.number-card.hidden {
+  display: none;
+}
+
+.number-card .highlight {
+  background-color: #fff59d;
+  font-weight: 700;
+  padding: 0 2px;
+  border-radius: 2px;
+}
+
 /* Buttons */
 .button-group {
   display: flex;

@@ -297,6 +297,10 @@ function displayPhoneNumbers(originalNumbers, currentNumbers) {
     const numberCard = document.createElement('div');
     numberCard.className = 'number-card';
 
+    // Store both formatted and normalized number for searching
+    numberCard.setAttribute('data-number', normalized);
+    numberCard.setAttribute('data-formatted', info.number);
+
     const badge = info.isTracking
       ? '<span class="number-badge tracking">Tracking</span>'
       : '<span class="number-badge original">Original</span>';
@@ -315,6 +319,13 @@ function displayPhoneNumbers(originalNumbers, currentNumbers) {
 
     numberList.appendChild(numberCard);
   });
+
+  // Clear any existing search and reset
+  const searchInput = document.getElementById('numberSearch');
+  if (searchInput) {
+    searchInput.value = '';
+    updateSearchMatchCount(allNumbers.size, allNumbers.size);
+  }
 }
 
 // Display number swaps
@@ -353,6 +364,100 @@ function displaySwaps(swaps) {
   });
 }
 
+// Filter phone numbers based on search query
+function filterPhoneNumbers(searchQuery) {
+  const numberCards = document.querySelectorAll('.number-card');
+  let matchCount = 0;
+  let totalCount = numberCards.length;
+
+  if (!searchQuery || searchQuery.trim() === '') {
+    // Show all cards if search is empty
+    numberCards.forEach(card => {
+      card.classList.remove('hidden');
+      // Remove any highlighting
+      const numberValue = card.querySelector('.number-value');
+      if (numberValue) {
+        const originalNumber = card.getAttribute('data-formatted');
+        numberValue.innerHTML = escapeHtml(originalNumber);
+      }
+    });
+    updateSearchMatchCount(totalCount, totalCount);
+    return;
+  }
+
+  const query = searchQuery.toLowerCase().replace(/\D/g, ''); // Remove non-digits from query
+
+  numberCards.forEach(card => {
+    const normalized = card.getAttribute('data-number') || '';
+    const formatted = card.getAttribute('data-formatted') || '';
+
+    // Check if the query matches any part of the normalized number
+    if (normalized.includes(query)) {
+      card.classList.remove('hidden');
+      matchCount++;
+
+      // Highlight matching part in the display
+      const numberValue = card.querySelector('.number-value');
+      if (numberValue) {
+        const highlightedNumber = highlightMatch(formatted, query);
+        numberValue.innerHTML = highlightedNumber;
+      }
+    } else {
+      card.classList.add('hidden');
+    }
+  });
+
+  updateSearchMatchCount(matchCount, totalCount);
+}
+
+// Highlight matching digits in the phone number
+function highlightMatch(phoneNumber, query) {
+  if (!query) return escapeHtml(phoneNumber);
+
+  // Extract just the digits from the phone number
+  const digits = phoneNumber.replace(/\D/g, '');
+
+  // Find where the query matches in the digits
+  const matchIndex = digits.indexOf(query);
+  if (matchIndex === -1) return escapeHtml(phoneNumber);
+
+  // Build the highlighted phone number
+  let result = '';
+  let digitIndex = 0;
+
+  for (let i = 0; i < phoneNumber.length; i++) {
+    const char = phoneNumber[i];
+
+    if (/\d/.test(char)) {
+      // This is a digit
+      if (digitIndex >= matchIndex && digitIndex < matchIndex + query.length) {
+        // This digit is part of the match
+        result += `<span class="highlight">${escapeHtml(char)}</span>`;
+      } else {
+        result += escapeHtml(char);
+      }
+      digitIndex++;
+    } else {
+      // This is formatting (-, (, ), space, etc.)
+      result += escapeHtml(char);
+    }
+  }
+
+  return result;
+}
+
+// Update the search match count display
+function updateSearchMatchCount(matchCount, totalCount) {
+  const matchCountElement = document.getElementById('searchMatchCount');
+  if (matchCountElement) {
+    if (matchCount === totalCount) {
+      matchCountElement.textContent = `Showing all ${totalCount} number${totalCount !== 1 ? 's' : ''}`;
+    } else {
+      matchCountElement.textContent = `Showing ${matchCount} of ${totalCount} number${totalCount !== 1 ? 's' : ''}`;
+    }
+  }
+}
+
 // Set up event listeners
 function setupEventListeners() {
   // Close panel button
@@ -372,6 +477,23 @@ function setupEventListeners() {
       }
     });
   });
+
+  // Phone number search
+  const numberSearch = document.getElementById('numberSearch');
+  if (numberSearch) {
+    numberSearch.addEventListener('input', (e) => {
+      const searchQuery = e.target.value;
+      filterPhoneNumbers(searchQuery);
+    });
+
+    // Also handle paste events
+    numberSearch.addEventListener('paste', (e) => {
+      setTimeout(() => {
+        const searchQuery = e.target.value;
+        filterPhoneNumbers(searchQuery);
+      }, 10);
+    });
+  }
 
   // Blocking toggle
   const blockingToggle = document.getElementById('blockingToggle');

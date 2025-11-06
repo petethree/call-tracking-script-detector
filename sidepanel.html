@@ -39,12 +39,18 @@
 
       <!-- Phone Numbers Section -->
       <div class="section" id="numbersSection">
-        <h2 class="section-header collapsible" data-target="numberList">
+        <h2 class="section-header collapsible" data-target="numberListContainer">
           📞 Phone Numbers (<span id="numberCount">0</span>)
           <span class="collapse-icon">▼</span>
         </h2>
-        <div id="numberList" class="number-list collapsible-content">
-          <p class="empty-state">No phone numbers found</p>
+        <div id="numberListContainer" class="collapsible-content">
+          <div class="search-container">
+            <input type="text" id="numberSearch" class="search-input" placeholder="Search numbers... (e.g., 4321, 800)">
+            <span id="searchMatchCount" class="search-match-count"></span>
+          </div>
+          <div id="numberList" class="number-list">
+            <p class="empty-state">No phone numbers found</p>
+          </div>
         </div>
       </div>
 
