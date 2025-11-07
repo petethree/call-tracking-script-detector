@@ -75,10 +75,8 @@ function displayResults(data) {
   // Display phone numbers
   displayPhoneNumbers(originalNumbers, currentNumbers);
 
-  // Display swaps
-  if (swaps.length > 0) {
-    displaySwaps(swaps);
-  }
+  // Display swaps (always call, it will handle empty state)
+  displaySwaps(swaps);
 }
 
 // Update status message
@@ -142,6 +140,11 @@ function displayTrackers(trackers) {
   });
 }
 
+// Store all numbers for pagination
+let allPhoneNumbersData = [];
+let displayedNumberCount = 0;
+const NUMBERS_PER_PAGE = 10;
+
 // Display phone numbers
 function displayPhoneNumbers(originalNumbers, currentNumbers) {
   const numberCount = document.getElementById('numberCount');
@@ -173,12 +176,41 @@ function displayPhoneNumbers(originalNumbers, currentNumbers) {
 
   if (allNumbers.size === 0) {
     numberList.innerHTML = '<p class="empty-state">No phone numbers found</p>';
+    allPhoneNumbersData = [];
+    displayedNumberCount = 0;
     return;
   }
 
-  numberList.innerHTML = '';
+  // Store all numbers data for pagination
+  allPhoneNumbersData = Array.from(allNumbers.entries()).map(([normalized, info]) => ({
+    normalized,
+    info
+  }));
 
-  allNumbers.forEach((info, normalized) => {
+  // Reset and display first batch
+  numberList.innerHTML = '';
+  displayedNumberCount = 0;
+  displayMoreNumbers();
+}
+
+// Display the next batch of phone numbers
+function displayMoreNumbers() {
+  const numberList = document.getElementById('numberList');
+
+  // Remove existing "Show More" button if present
+  const existingButton = numberList.querySelector('.show-more-btn');
+  if (existingButton) {
+    existingButton.remove();
+  }
+
+  // Calculate how many to show in this batch
+  const startIndex = displayedNumberCount;
+  const endIndex = Math.min(startIndex + NUMBERS_PER_PAGE, allPhoneNumbersData.length);
+
+  // Display the batch
+  for (let i = startIndex; i < endIndex; i++) {
+    const { normalized, info } = allPhoneNumbersData[i];
+
     const numberCard = document.createElement('div');
     numberCard.className = 'number-card';
 
@@ -199,37 +231,65 @@ function displayPhoneNumbers(originalNumbers, currentNumbers) {
     `;
 
     numberList.appendChild(numberCard);
-  });
+  }
+
+  displayedNumberCount = endIndex;
+
+  // Add "Show More" button if there are more numbers
+  if (displayedNumberCount < allPhoneNumbersData.length) {
+    const showMoreBtn = document.createElement('button');
+    showMoreBtn.className = 'btn btn-secondary btn-block show-more-btn';
+    showMoreBtn.style.marginTop = '12px';
+    showMoreBtn.textContent = `Show More (${allPhoneNumbersData.length - displayedNumberCount} remaining)`;
+    showMoreBtn.addEventListener('click', displayMoreNumbers);
+    numberList.appendChild(showMoreBtn);
+  }
 }
 
 // Display number swaps
 function displaySwaps(swaps) {
-  const swapSection = document.getElementById('swapsSection');
   const swapCount = document.getElementById('swapCount');
   const swapList = document.getElementById('swapList');
 
   swapCount.textContent = swaps.length;
-  swapSection.style.display = 'block';
+
+  if (swaps.length === 0) {
+    swapList.innerHTML = '<p class="empty-state">No number swaps detected yet. If tracking scripts are active, swaps may appear as the page loads or when conditions change.</p>';
+    return;
+  }
 
   swapList.innerHTML = '';
+
+  // Add info box at the top
+  const infoBox = document.createElement('div');
+  infoBox.className = 'swap-info';
+  infoBox.innerHTML = `
+    <strong>Number Swaps Detected!</strong> The tracking script has replaced original phone numbers with tracking numbers.
+    Below you can see which original numbers were on the page and what tracking numbers are now showing to visitors.
+  `;
+  swapList.appendChild(infoBox);
 
   swaps.forEach(swap => {
     const swapCard = document.createElement('div');
     swapCard.className = 'swap-card';
 
     const locations = swap.locations?.length > 0
-      ? `<div class="swap-location">📍 ${swap.locations.join(', ')}</div>`
+      ? `<div class="swap-location">📍 Found in: ${swap.locations.join(', ')}</div>`
       : '';
 
     swapCard.innerHTML = `
-      <div class="swap-row">
-        <span class="swap-label">Original:</span>
-        <span class="swap-value">${swap.original}</span>
+      <div class="swap-row original">
+        <div>
+          <div class="swap-label">Original Number on Page</div>
+          <div class="swap-value original">${swap.original}</div>
+        </div>
       </div>
-      <div class="swap-arrow">→</div>
-      <div class="swap-row">
-        <span class="swap-label">Tracking:</span>
-        <span class="swap-value tracking">${swap.tracking}</span>
+      <div class="swap-arrow">↓</div>
+      <div class="swap-row tracking">
+        <div>
+          <div class="swap-label">Swapped to Tracking Number</div>
+          <div class="swap-value tracking">${swap.tracking}</div>
+        </div>
       </div>
       ${locations}
     `;
@@ -275,10 +335,18 @@ function setupEventListeners(tab) {
     }
 
     const currentUrl = new URL(tab.url);
-    const separator = currentUrl.search ? '&' : '?';
-    const newUrl = currentUrl.href + separator + param;
 
-    chrome.tabs.update(tab.id, { url: newUrl });
+    // Remove existing test parameters
+    const testParams = ['gclid', 'fbclid', 'msclkid', 'ttclid', 'epik', 'ScCid', 'twclid', 'li_fat_id', 'yclid'];
+    testParams.forEach(testParam => {
+      currentUrl.searchParams.delete(testParam);
+    });
+
+    // Add the new parameter
+    const [paramName, paramValue] = param.split('=');
+    currentUrl.searchParams.set(paramName, paramValue);
+
+    chrome.tabs.update(tab.id, { url: currentUrl.href });
     window.close();
   });
 
@@ -329,7 +397,13 @@ function setupEventListeners(tab) {
   // Help link
   document.getElementById('helpLink').addEventListener('click', (e) => {
     e.preventDefault();
-    chrome.tabs.create({ url: 'https://github.com/yourusername/call-tracking-detector' });
+    chrome.tabs.create({ url: 'https://github.com/petethree/call-tracking-script-detector' });
+  });
+
+  // Suggest Feature link
+  document.getElementById('featureLink').addEventListener('click', (e) => {
+    e.preventDefault();
+    chrome.tabs.create({ url: 'https://docs.google.com/forms/d/e/1FAIpQLSeBxDix5LOQY_nxflpipyLUBlLI_11Ac0WyMs0yYLeZJIPrOg/viewform?usp=dialog' });
   });
 }
 

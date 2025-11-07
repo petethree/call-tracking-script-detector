@@ -25,6 +25,13 @@ This is the first version (MVP) of the Call Tracking Detector Chrome extension.
 - ✅ Detailed view of all phone numbers found
 - ✅ Number swap detection and comparison
 
+### Side Panel Interface
+- ✅ Resizable side panel (not a popup!)
+- ✅ Stays open as you navigate between sites
+- ✅ Automatic scanning on page load
+- ✅ Full-height layout for maximum visibility
+- ✅ Shows current URL being analyzed
+
 ### Testing Tools
 - ✅ Traffic source simulation (Google Ads, Facebook, etc.)
 - ✅ Cookie management for testing
@@ -66,34 +73,55 @@ This is the first version (MVP) of the Call Tracking Detector Chrome extension.
 
 ## Usage
 
+### Opening the Side Panel
+
+1. Click the Call Tracking Detector icon in your Chrome toolbar
+2. The extension will open as a **resizable side panel** on the right side of your browser
+3. The panel will remain open as you navigate between websites
+4. You can resize the panel by dragging the left edge
+5. Click the **×** button in the header to close the panel
+
 ### Basic Detection
 
-1. Navigate to any website
-2. Click the Call Tracking Detector icon in your toolbar
-3. The extension will automatically scan for:
+1. With the side panel open, navigate to any website
+2. The extension will **automatically scan** each page for:
    - Call tracking scripts
    - Phone numbers on the page
    - Number swaps (original → tracking)
+3. Results update in real-time as you browse
+4. The panel shows the current URL being analyzed
 
 ### Testing Traffic Sources
 
-1. Open the extension popup
-2. In the "Test Traffic Source" section, select a platform (e.g., "Google Ads")
+1. In the side panel, scroll to the "Test Traffic Source" section
+2. Select a platform (e.g., "Google Ads")
 3. Click "Apply" - the page will reload with the tracking parameter
 4. Observe how the tracking numbers change based on the traffic source
+5. The side panel automatically rescans the page after reload
 
 ### Blocking Tracking Scripts
 
-1. Open the extension popup
+1. In the side panel, find the "Script Blocking" section
 2. Toggle "Block Tracking Scripts" on
 3. The page will reload with all tracking scripts blocked
 4. You should now see only the original phone numbers
+5. The side panel will show the updated results
 
 ### Clearing Cookies
 
-1. Open the extension popup
+1. In the side panel, scroll to "Cookie Management"
 2. Click "Clear Domain Cookies"
 3. The page will reload with a fresh session
+4. Perfect for testing how tracking behaves for new visitors
+
+### Persistent Scanning
+
+The side panel stays open as you navigate:
+- Browse from site to site
+- Each new page is automatically scanned
+- Results are displayed immediately
+- No need to reopen the extension
+- Perfect for auditing multiple sites
 
 ## File Structure
 
@@ -102,9 +130,12 @@ call-tracking-script-detector/
 ├── manifest.json           # Chrome extension manifest (Manifest V3)
 ├── background.js          # Service worker for network monitoring
 ├── content.js             # Content script for DOM scanning
-├── popup.html             # Popup interface HTML
-├── popup.js               # Popup logic
-├── popup.css              # Popup styling
+├── sidepanel.html         # Side panel interface HTML
+├── sidepanel.js           # Side panel logic
+├── sidepanel.css          # Side panel styling
+├── popup.html             # Legacy popup interface (not used)
+├── popup.js               # Legacy popup logic (not used)
+├── popup.css              # Legacy popup styling (not used)
 ├── utils.js               # Utility functions for phone detection
 ├── providers.json         # Provider library (top 5 providers)
 ├── rules.json             # Blocking rules for declarativeNetRequest
@@ -127,6 +158,7 @@ The extension requires the following permissions:
 - `declarativeNetRequest` - Block tracking scripts
 - `scripting` - Inject content scripts
 - `tabs` - Access tab information
+- `sidePanel` - Display the side panel interface
 - `<all_urls>` - Scan any website
 
 ### Detection Method

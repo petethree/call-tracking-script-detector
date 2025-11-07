@@ -63,16 +63,17 @@
     {
       "id": "800com",
       "name": "800.com",
-      "domains": ["api.800.com", "800.com"],
+      "domains": ["api.800.com", "app.800.com"],
       "scriptPatterns": [
         "api.800.com",
-        "800tracking"
+        "app.800.com"
       ],
       "signatures": [
-        "tracking800",
-        "NumberSwap"
+        "800SessionId",
+        "_800tracking",
+        "window._800"
       ],
-      "description": "800.com call tracking service"
+      "description": "800.com call tracking service with Dynamic Number Insertion (DNI)"
     }
   ]
 }
