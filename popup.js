@@ -59,11 +59,13 @@ function displayResults(data) {
 
   // Update status
   if (scanComplete) {
-    const trackerCount = detectedTrackers.length;
+    // Count unique providers instead of total detections
+    const uniqueProviders = new Set(detectedTrackers.map(t => t.providerId));
+    const providerCount = uniqueProviders.size;
     const swapCount = swaps.length;
 
-    if (trackerCount > 0 || swapCount > 0) {
-      updateStatus(`${trackerCount} Tracker(s) Detected`, 'success');
+    if (providerCount > 0 || swapCount > 0) {
+      updateStatus(`${providerCount} Tracker(s) Detected`, 'success');
     } else {
       updateStatus('No Tracking Detected', 'gray');
     }
@@ -99,7 +101,9 @@ function displayTrackers(trackers) {
   const trackerCount = document.getElementById('trackerCount');
   const trackerList = document.getElementById('trackerList');
 
-  trackerCount.textContent = trackers.length;
+  // Count unique providers instead of total detections
+  const uniqueProviders = new Set(trackers.map(t => t.providerId));
+  trackerCount.textContent = uniqueProviders.size;
 
   if (trackers.length === 0) {
     trackerList.innerHTML = '<p class="empty-state">No tracking scripts detected</p>';
