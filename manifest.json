@@ -54,7 +54,7 @@
   },
   "web_accessible_resources": [
     {
-      "resources": ["providers.json"],
+      "resources": ["providers.json", "injected-detector.js"],
       "matches": ["<all_urls>"]
     }
   ]

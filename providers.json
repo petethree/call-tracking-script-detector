@@ -14,6 +14,20 @@
         "CR.track",
         "CallRail"
       ],
+      "urlPathPatterns": [
+        "/api/track/*",
+        "/swap*",
+        "/v1/a/*/calls/swap*"
+      ],
+      "queryParamPatterns": [
+        "session_id",
+        "tracking_id",
+        "swap_id",
+        "account_id"
+      ],
+      "globalVariables": [
+        "CallTrk"
+      ],
       "description": "CallRail call tracking service"
     },
     {
@@ -29,6 +43,19 @@
         "MTK",
         "Marchex"
       ],
+      "urlPathPatterns": [
+        "/api/track/*",
+        "/mtk/*",
+        "/phone/swap*"
+      ],
+      "queryParamPatterns": [
+        "session_id",
+        "mtk_id",
+        "campaign_id"
+      ],
+      "globalVariables": [
+        "MARCHEX_DNI_SCANNER"
+      ],
       "description": "Marchex call intelligence platform"
     },
     {
@@ -42,6 +69,19 @@
       "signatures": [
         "WhatConverts",
         "wc_track"
+      ],
+      "urlPathPatterns": [
+        "/api/track/*",
+        "/track*",
+        "/swap.php*"
+      ],
+      "queryParamPatterns": [
+        "wc_session",
+        "tracking_id",
+        "lead_id"
+      ],
+      "globalVariables": [
+        "oqhaqzwnbjgcpycneryg"
       ],
       "description": "WhatConverts lead tracking software"
     },
@@ -58,6 +98,19 @@
         "Invoca",
         "invoca"
       ],
+      "urlPathPatterns": [
+        "/api/*/calls/*",
+        "/pnapi/*",
+        "/promo_number*"
+      ],
+      "queryParamPatterns": [
+        "invoca_session",
+        "campaign_id",
+        "ring_pool_id"
+      ],
+      "globalVariables": [
+        "Invoca"
+      ],
       "description": "Invoca call tracking and analytics"
     },
     {
@@ -73,7 +126,70 @@
         "_800tracking",
         "window._800"
       ],
+      "urlPathPatterns": [
+        "/api/track/*",
+        "/dni/*",
+        "/session/*"
+      ],
+      "queryParamPatterns": [
+        "800_session",
+        "tracking_id",
+        "dni_id"
+      ],
+      "globalVariables": [
+        "_800js"
+      ],
       "description": "800.com call tracking service with Dynamic Number Insertion (DNI)"
+    },
+    {
+      "id": "calltrackingmetrics",
+      "name": "CallTrackingMetrics",
+      "domains": ["calltrackingmetrics.com", "cdn.calltrackingmetrics.com"],
+      "scriptPatterns": [
+        "calltrackingmetrics",
+        "ctm.js"
+      ],
+      "signatures": [
+        "CallTrackingMetrics",
+        "__ctm"
+      ],
+      "urlPathPatterns": [
+        "/api/track/*",
+        "/ctm/*"
+      ],
+      "queryParamPatterns": [
+        "ctm_session",
+        "tracking_id"
+      ],
+      "globalVariables": [
+        "__ctm"
+      ],
+      "description": "CallTrackingMetrics call tracking and analytics"
+    },
+    {
+      "id": "googlecalltracking",
+      "name": "Google Call Tracking",
+      "domains": ["googleadservices.com", "google.com"],
+      "scriptPatterns": [
+        "googleadservices",
+        "conversion"
+      ],
+      "signatures": [
+        "_googCallTrackingImpl",
+        "google_trackConversion"
+      ],
+      "urlPathPatterns": [
+        "/pagead/conversion*",
+        "/pagead/viewthroughconversion*"
+      ],
+      "queryParamPatterns": [
+        "label",
+        "conversion_id"
+      ],
+      "globalVariables": [
+        "_googCallTrackingImpl"
+      ],
+      "description": "Google Ads call tracking and conversion tracking"
     }
   ]
 }

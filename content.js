@@ -23,6 +23,38 @@
   let scanComplete = false;
   let contextInvalidated = false; // Flag to track if we've detected invalidation
 
+  // Listen for global variable detection results from injected script
+  // Set this up EARLY before any injections happen
+  document.addEventListener('trackingVariablesFound', (event) => {
+    const foundVariables = event.detail;
+    
+    foundVariables.forEach(item => {
+      // Check if we've already detected this provider via this global variable
+      const alreadyDetected = detectedTrackers.some(
+        tracker => tracker.providerId === item.providerId &&
+                  tracker.matchType === 'globalVariable' &&
+                  tracker.globalVariable === item.variable
+      );
+
+      if (!alreadyDetected) {
+        detectedTrackers.push({
+          provider: item.provider,
+          providerId: item.providerId,
+          scriptUrl: 'global variable',
+          globalVariable: item.variable,
+          matchType: 'globalVariable',
+          matchedPattern: item.variable
+        });
+        console.log('[Call Tracker Detector] Found', item.provider, 'via global variable:', item.variable);
+        
+        // Update badge and storage when new variable detected
+        if (isExtensionContextValid()) {
+          updateBadgeAndStorage();
+        }
+      }
+    });
+  });
+
   // Check if extension context is still valid
   function isExtensionContextValid() {
     try {
@@ -57,30 +89,80 @@
     }
   }
 
+  // Inject script into page context to check for global variables
+  function injectGlobalVariableDetector() {
+    const target = document.head || document.documentElement;
+    if (!target) return;
+
+    // Validate providers array exists
+    if (!providers || providers.length === 0) return;
+
+    // Create a script tag with data attribute containing vars to check
+    const varsToCheck = providers.flatMap(p =>
+      (p.globalVariables || []).map(v => ({ provider: p.id, variable: v, name: p.name }))
+    );
+    
+    // First inject a script tag with the data
+    const dataScript = document.createElement('script');
+    dataScript.dataset.trackerVars = JSON.stringify(varsToCheck);
+    dataScript.id = 'call-tracker-detector-data';
+    target.appendChild(dataScript);
+    
+    // Then inject the detector script that will read this data
+    const detectorScript = document.createElement('script');
+    detectorScript.src = chrome.runtime.getURL('injected-detector.js');
+    detectorScript.onerror = function(e) {
+      console.error('[Call Tracker Detector] Failed to load injected-detector.js:', e);
+    };
+    detectorScript.onload = function() {
+      // Don't remove immediately - give it time to execute
+      setTimeout(() => {
+        this.remove();
+        dataScript.remove();
+      }, 100);
+    };
+    
+    target.appendChild(detectorScript);
+  }
+
+  // Detect tracking scripts by checking global JavaScript variables
+  function detectGlobalVariables() {
+    // Inject script to check in page context
+    injectGlobalVariableDetector();
+    
+    // Schedule additional checks for scripts that load later
+    setTimeout(() => {
+      injectGlobalVariableDetector();
+    }, 3000);
+    
+    // Return empty for now - actual detection happens via event listener
+    return [];
+  }
+
   // Detect tracking scripts in the page
   function detectTrackingScripts() {
     const scripts = document.querySelectorAll('script[src]');
     const detectedProviders = new Set();
 
     scripts.forEach(script => {
-      const src = script.src.toLowerCase();
+      const src = script.src;
 
       providers.forEach(provider => {
-        // Check if script URL matches provider domains or patterns
-        const matchesDomain = provider.domains.some(domain => src.includes(domain.toLowerCase()));
-        const matchesPattern = provider.scriptPatterns.some(pattern =>
-          src.includes(pattern.toLowerCase())
-        );
+        // Use comprehensive URL matching from utils.js
+        const matchResult = matchesTrackingUrl(src, provider);
 
-        if (matchesDomain || matchesPattern) {
+        if (matchResult.matches) {
           detectedProviders.add(provider.id);
           detectedTrackers.push({
             provider: provider.name,
             providerId: provider.id,
             scriptUrl: script.src,
-            element: script
+            element: script,
+            matchType: matchResult.matchType,
+            matchedPattern: matchResult.matchedPattern
           });
-          console.log('[Call Tracker Detector] Found', provider.name, 'script:', script.src);
+          console.log('[Call Tracker Detector] Found', provider.name, 'script:', script.src,
+                      `(matched via ${matchResult.matchType}: ${matchResult.matchedPattern})`);
         }
       });
     });
@@ -114,6 +196,9 @@
 
   // Capture original phone numbers from the page
   function captureOriginalNumbers() {
+    // Safety check: document.body may not exist yet at document_start
+    if (!document.body) return;
+
     const numbers = findPhoneNumbersInElement(document.body);
 
     numbers.forEach(numberInfo => {
@@ -139,6 +224,9 @@
 
   // Scan current state of phone numbers
   function scanCurrentNumbers() {
+    // Safety check: document.body may not exist yet
+    if (!document.body) return;
+
     currentNumbers.clear();
     const numbers = findPhoneNumbersInElement(document.body);
 
@@ -195,6 +283,12 @@
   let mutationObserver = null;
 
   function observeDOMChanges() {
+    // Safety check: document.body must exist to observe
+    if (!document.body) {
+      console.log('[Call Tracker Detector] document.body not ready yet, cannot start observer');
+      return;
+    }
+
     mutationObserver = new MutationObserver((mutations) => {
       // Wrap everything in try-catch to handle extension context invalidation
       try {
@@ -292,48 +386,63 @@
     }
   }
 
+  // Debounce timer for badge updates
+  let updateTimer = null;
+
   // Update extension badge and storage
   function updateBadgeAndStorage() {
-    // Check if extension context is valid before proceeding
-    if (!isExtensionContextValid()) {
-      console.log('[Call Tracker Detector] Extension context invalidated, skipping update');
-      return;
+    // Debounce to prevent rapid flickering
+    if (updateTimer) {
+      clearTimeout(updateTimer);
     }
 
-    const swaps = detectNumberSwaps();
+    updateTimer = setTimeout(() => {
+      // Check if extension context is valid before proceeding
+      if (!isExtensionContextValid()) {
+        console.log('[Call Tracker Detector] Extension context invalidated, skipping update');
+        return;
+      }
 
-    const results = {
-      url: window.location.href,
-      detectedTrackers: detectedTrackers,
-      originalNumbers: Array.from(originalNumbers.values()),
-      currentNumbers: Array.from(currentNumbers.values()),
-      swaps: swaps,
-      timestamp: Date.now()
-    };
+      const swaps = detectNumberSwaps();
 
-    // Send to background script
-    try {
-      chrome.runtime.sendMessage({
-        action: 'updateDetection',
-        data: results
-      }).catch(err => {
-        // Extension context may be invalid, ignore
-        console.log('[Call Tracker Detector] Could not send message:', err);
-      });
-    } catch (err) {
-      console.log('[Call Tracker Detector] Error sending message:', err);
-    }
+      // Count unique providers instead of total detections
+      const uniqueProviders = new Set(detectedTrackers.map(t => t.providerId));
+      const providerCount = uniqueProviders.size;
 
-    // Store in chrome.storage for popup
-    try {
-      chrome.storage.local.set({
-        [`detection_${getTabId()}`]: results
-      }).catch(err => {
-        console.log('[Call Tracker Detector] Could not store results:', err);
-      });
-    } catch (err) {
-      console.log('[Call Tracker Detector] Error storing results:', err);
-    }
+      const results = {
+        url: window.location.href,
+        detectedTrackers: detectedTrackers,
+        originalNumbers: Array.from(originalNumbers.values()),
+        currentNumbers: Array.from(currentNumbers.values()),
+        swaps: swaps,
+        uniqueProviderCount: providerCount,
+        timestamp: Date.now()
+      };
+
+      // Send to background script
+      try {
+        chrome.runtime.sendMessage({
+          action: 'updateDetection',
+          data: results
+        }).catch(err => {
+          // Extension context may be invalid, ignore
+          console.log('[Call Tracker Detector] Could not send message:', err);
+        });
+      } catch (err) {
+        console.log('[Call Tracker Detector] Error sending message:', err);
+      }
+
+      // Store in chrome.storage for popup
+      try {
+        chrome.storage.local.set({
+          [`detection_${getTabId()}`]: results
+        }).catch(err => {
+          console.log('[Call Tracker Detector] Could not store results:', err);
+        });
+      } catch (err) {
+        console.log('[Call Tracker Detector] Error storing results:', err);
+      }
+    }, 150); // 150ms debounce for better responsiveness
   }
 
   // Get approximate tab ID (we'll use timestamp as fallback)
@@ -345,56 +454,67 @@
   async function initialize() {
     console.log('[Call Tracker Detector] Initializing...');
 
-    // Load providers
+    // Load providers first
     await loadProviders();
 
-    // Wait for DOM to be ready
+    // Run initial detection
+    runDetection();
+
+    // Set up lifecycle-based rescans
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', runDetection);
-    } else {
-      runDetection();
+      // Document still loading - wait for DOMContentLoaded
+      document.addEventListener('DOMContentLoaded', () => runDetection());
     }
+
+    // Always rescan after window fully loads (for dynamic scripts)
+    window.addEventListener('load', () => {
+      setTimeout(() => runDetection(), 1000);
+    });
   }
 
   // Run the detection process
   function runDetection() {
-    console.log('[Call Tracker Detector] Running detection...');
+    // Step 1: Capture original numbers if not already captured
+    if (originalNumbers.size === 0) {
+      captureOriginalNumbers();
+    }
 
-    // Step 1: Capture original numbers immediately
-    captureOriginalNumbers();
-
-    // Step 2: Detect tracking scripts
+    // Step 2: Detect tracking scripts in DOM
     const foundProviders = detectTrackingScripts();
 
-    // Step 3: Wait a bit for tracking scripts to execute
-    setTimeout(() => {
-      try {
-        scanCurrentNumbers();
-        const swaps = detectNumberSwaps();
+    // Step 3: Check for global variables
+    const globalVarProviders = detectGlobalVariables();
 
-        console.log('[Call Tracker Detector] Detection complete:', {
-          providers: foundProviders.length,
-          originalNumbers: originalNumbers.size,
-          currentNumbers: currentNumbers.size,
-          swaps: swaps.length
-        });
+    // Step 4: Scan current numbers
+    scanCurrentNumbers();
+    const swaps = detectNumberSwaps();
 
-        // Step 4: Update badge and storage (only if context is still valid)
-        if (isExtensionContextValid()) {
-          updateBadgeAndStorage();
-        } else {
-          console.log('[Call Tracker Detector] Extension context invalidated during detection, skipping badge update');
-        }
+    // Count unique providers
+    const uniqueProviders = new Set(detectedTrackers.map(t => t.providerId));
 
-        // Step 5: Start monitoring for changes
-        observeDOMChanges();
+    console.log('[Call Tracker Detector] Detection complete:', {
+      uniqueProviders: uniqueProviders.size,
+      scriptProviders: foundProviders.length,
+      globalVarProviders: globalVarProviders.length,
+      totalDetections: detectedTrackers.length,
+      originalNumbers: originalNumbers.size,
+      currentNumbers: currentNumbers.size,
+      swaps: swaps.length
+    });
 
-        scanComplete = true;
-      } catch (error) {
-        console.log('[Call Tracker Detector] Error in detection timeout:', error);
-      }
-    }, 2000); // Wait 2 seconds for scripts to execute
+    // Step 5: Update badge and storage
+    if (isExtensionContextValid()) {
+      updateBadgeAndStorage();
+    }
+
+    // Step 6: Start monitoring for changes (only once)
+    if (!mutationObserver) {
+      observeDOMChanges();
+    }
+
+    scanComplete = true;
   }
+
 
   // Listen for messages from popup
   if (isExtensionContextValid()) {

@@ -148,6 +148,175 @@ function getElementLocation(element) {
   return locations.length > 0 ? locations.join(', ') : 'Content';
 }
 
+/**
+ * Match URL against path patterns
+ * Supports wildcards (*) and exact matching
+ * @param {string} url - URL to match
+ * @param {Array<string>} patterns - Array of path patterns to match against
+ * @returns {boolean} True if URL matches any pattern
+ */
+function matchesUrlPattern(url, patterns) {
+  if (!url || !patterns || patterns.length === 0) return false;
+
+  try {
+    const urlObj = new URL(url.toLowerCase());
+    const pathname = urlObj.pathname;
+
+    return patterns.some(pattern => {
+      const normalizedPattern = pattern.toLowerCase();
+
+      try {
+        // Convert wildcard pattern to regex
+        // Escape special regex chars except *
+        const regexPattern = normalizedPattern
+          .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+          .replace(/\*/g, '.*');
+
+        const regex = new RegExp(regexPattern);
+        return regex.test(pathname);
+      } catch (regexError) {
+        // If regex creation fails, skip this pattern
+        console.warn('[Utils] Invalid regex pattern:', pattern, regexError);
+        return false;
+      }
+    });
+  } catch (e) {
+    // If URL parsing fails, fall back to simple string matching
+    return patterns.some(pattern => {
+      const normalizedPattern = pattern.toLowerCase();
+      const normalizedUrl = url.toLowerCase();
+
+      try {
+        if (normalizedPattern.includes('*')) {
+          const regexPattern = normalizedPattern
+            .replace(/[.+?^${}()|[\]\\]/g, '\\$&')
+            .replace(/\*/g, '.*');
+          const regex = new RegExp(regexPattern);
+          return regex.test(normalizedUrl);
+        }
+
+        return normalizedUrl.includes(normalizedPattern);
+      } catch (regexError) {
+        console.warn('[Utils] Invalid regex pattern:', pattern, regexError);
+        return false;
+      }
+    });
+  }
+}
+
+/**
+ * Match URL against query parameter patterns
+ * @param {string} url - URL to match
+ * @param {Array<string>} paramPatterns - Array of query parameter names to look for
+ * @returns {boolean} True if URL contains any of the query parameters
+ */
+function matchesQueryParams(url, paramPatterns) {
+  if (!url || !paramPatterns || paramPatterns.length === 0) return false;
+
+  try {
+    const urlObj = new URL(url);
+    const searchParams = urlObj.searchParams;
+
+    return paramPatterns.some(param => {
+      const normalizedParam = param.toLowerCase();
+
+      // Check if any query parameter matches
+      for (const key of searchParams.keys()) {
+        if (key.toLowerCase().includes(normalizedParam)) {
+          return true;
+        }
+      }
+      return false;
+    });
+  } catch (e) {
+    // If URL parsing fails, fall back to simple string matching
+    return paramPatterns.some(param => {
+      const normalizedParam = param.toLowerCase();
+      const normalizedUrl = url.toLowerCase();
+
+      // Look for the parameter in the query string
+      return normalizedUrl.includes(`?${normalizedParam}=`) ||
+             normalizedUrl.includes(`&${normalizedParam}=`);
+    });
+  }
+}
+
+/**
+ * Comprehensive URL pattern matching for tracking detection
+ * Checks domains, script patterns, URL paths, and query parameters
+ * @param {string} url - URL to check
+ * @param {Object} provider - Provider object with detection patterns
+ * @returns {Object} Match result with details
+ */
+function matchesTrackingUrl(url, provider) {
+  if (!url || !provider) {
+    return { matches: false };
+  }
+
+  const normalizedUrl = url.toLowerCase();
+  const matchDetails = {
+    matches: false,
+    matchType: null,
+    matchedPattern: null
+  };
+
+  // Check domains
+  if (provider.domains && provider.domains.length > 0) {
+    const domainMatch = provider.domains.some(domain =>
+      normalizedUrl.includes(domain.toLowerCase())
+    );
+    if (domainMatch) {
+      matchDetails.matches = true;
+      matchDetails.matchType = 'domain';
+      matchDetails.matchedPattern = provider.domains.find(d =>
+        normalizedUrl.includes(d.toLowerCase())
+      );
+      return matchDetails;
+    }
+  }
+
+  // Check script patterns
+  if (provider.scriptPatterns && provider.scriptPatterns.length > 0) {
+    const scriptMatch = provider.scriptPatterns.some(pattern =>
+      normalizedUrl.includes(pattern.toLowerCase())
+    );
+    if (scriptMatch) {
+      matchDetails.matches = true;
+      matchDetails.matchType = 'scriptPattern';
+      matchDetails.matchedPattern = provider.scriptPatterns.find(p =>
+        normalizedUrl.includes(p.toLowerCase())
+      );
+      return matchDetails;
+    }
+  }
+
+  // Check URL path patterns
+  if (provider.urlPathPatterns && provider.urlPathPatterns.length > 0) {
+    if (matchesUrlPattern(url, provider.urlPathPatterns)) {
+      matchDetails.matches = true;
+      matchDetails.matchType = 'urlPath';
+      matchDetails.matchedPattern = provider.urlPathPatterns.find(p =>
+        matchesUrlPattern(url, [p])
+      );
+      return matchDetails;
+    }
+  }
+
+  // Check query parameters
+  if (provider.queryParamPatterns && provider.queryParamPatterns.length > 0) {
+    if (matchesQueryParams(url, provider.queryParamPatterns)) {
+      matchDetails.matches = true;
+      matchDetails.matchType = 'queryParam';
+      matchDetails.matchedPattern = provider.queryParamPatterns.find(p =>
+        matchesQueryParams(url, [p])
+      );
+      return matchDetails;
+    }
+  }
+
+  return matchDetails;
+}
+
 // Export for use in other scripts
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
@@ -157,6 +326,9 @@ if (typeof module !== 'undefined' && module.exports) {
     isValidPhone,
     phonesEqual,
     findPhoneNumbersInElement,
-    getElementLocation
+    getElementLocation,
+    matchesUrlPattern,
+    matchesQueryParams,
+    matchesTrackingUrl
   };
 }
