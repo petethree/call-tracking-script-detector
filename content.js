@@ -1,4 +1,5 @@
 // Content script for detecting call tracking and phone numbers
+// Fast and accurate detection - prioritizes domain matching
 
 (function() {
   'use strict';
@@ -37,109 +38,112 @@
     }
   }
 
+  // Extract hostname from URL
+  function getHostname(url) {
+    try {
+      return new URL(url).hostname.toLowerCase();
+    } catch (e) {
+      const match = url.toLowerCase().match(/(?:https?:)?\/\/([^\/\?#]+)/);
+      return match ? match[1] : '';
+    }
+  }
+
+  // Check if hostname matches domain (exact or subdomain)
+  function matchesDomain(hostname, domain) {
+    const d = domain.toLowerCase();
+    return hostname === d || hostname.endsWith('.' + d);
+  }
+
   // Detect tracking scripts in the page
   function detectTrackingScripts() {
-    console.log('[Call Tracker Detector] === STARTING DETECTION ===');
+    console.log('[Call Tracker Detector] === DETECTION START ===');
 
     const scripts = document.querySelectorAll('script[src]');
-    console.log('[Call Tracker Detector] Found', scripts.length, 'script tags on page');
+    console.log(`[Call Tracker Detector] Scanning ${scripts.length} scripts`);
 
-    const detectedProviders = new Set();
-    detectedTrackers = []; // Reset
+    const found = new Set();
+    detectedTrackers = [];
 
-    scripts.forEach((script, idx) => {
-      const srcUrl = script.src;
-      if (!srcUrl) return;
+    // PASS 1: Check external script domains (MOST RELIABLE)
+    scripts.forEach(script => {
+      const url = script.src;
+      if (!url) return;
 
-      console.log(`[Call Tracker Detector] Script ${idx + 1}: ${srcUrl}`);
-
-      const srcLower = srcUrl.toLowerCase();
-      let hostname = '';
-
-      // Extract hostname
-      try {
-        const url = new URL(srcUrl);
-        hostname = url.hostname.toLowerCase();
-      } catch (e) {
-        const match = srcLower.match(/(?:https?:)?\/\/([^\/\?#]+)/);
-        if (match) hostname = match[1];
-      }
-
+      const hostname = getHostname(url);
       if (!hostname) return;
 
-      // Check each provider
-      providers.forEach(provider => {
-        // Check domains
-        const domainMatch = provider.domains.some(domain => {
-          const d = domain.toLowerCase();
-          return hostname === d || hostname.endsWith('.' + d);
-        });
-
-        if (domainMatch) {
-          console.log(`[Call Tracker Detector] ✓✓✓ MATCH: ${provider.name} (domain: ${hostname})`);
-
-          if (!detectedProviders.has(provider.id)) {
-            detectedProviders.add(provider.id);
+      for (const provider of providers) {
+        if (provider.domains.some(d => matchesDomain(hostname, d))) {
+          if (!found.has(provider.id)) {
+            found.add(provider.id);
+            console.log(`[Call Tracker Detector] ✓ ${provider.name} - Script: ${url}`);
           }
-
           detectedTrackers.push({
             provider: provider.name,
             providerId: provider.id,
-            scriptUrl: srcUrl,
-            element: script
+            scriptUrl: url,
+            matchType: 'domain'
           });
+          break; // Found match, stop checking other providers for this script
         }
-      });
+      }
     });
 
-    // Check inline scripts
+    // PASS 2: Check inline scripts for VERY SPECIFIC signatures ONLY
+    // Only if no domain match was found for a provider
     const inlineScripts = document.querySelectorAll('script:not([src])');
-    console.log('[Call Tracker Detector] Checking', inlineScripts.length, 'inline scripts');
 
-    inlineScripts.forEach(script => {
+    for (const script of inlineScripts) {
       const content = script.textContent;
-      if (!content) return;
+      if (!content || content.length < 10) continue;
 
-      const contentLower = content.toLowerCase();
+      for (const provider of providers) {
+        // Skip if already found via domain
+        if (found.has(provider.id)) continue;
 
-      providers.forEach(provider => {
-        const sigMatch = provider.signatures.some(sig => {
-          return content.includes(sig) || contentLower.includes(sig.toLowerCase());
-        });
+        // Only match on VERY SPECIFIC signatures (function calls, unique APIs)
+        const specificSignatures = provider.signatures.filter(sig =>
+          sig.includes('.') || sig.includes('_') || sig.startsWith('window.')
+        );
 
-        if (sigMatch && !detectedProviders.has(provider.id)) {
-          console.log(`[Call Tracker Detector] ✓✓✓ MATCH: ${provider.name} (inline script)`);
+        const hasSpecificMatch = specificSignatures.some(sig => content.includes(sig));
 
-          detectedProviders.add(provider.id);
+        if (hasSpecificMatch) {
+          found.add(provider.id);
+          console.log(`[Call Tracker Detector] ✓ ${provider.name} - Inline script signature`);
           detectedTrackers.push({
             provider: provider.name,
             providerId: provider.id,
             scriptUrl: 'inline script',
-            element: script,
-            isInline: true
+            isInline: true,
+            matchType: 'signature'
           });
+          break;
         }
-      });
-    });
+      }
+    }
 
-    console.log('[Call Tracker Detector] === DETECTION COMPLETE ===');
-    console.log('[Call Tracker Detector] Providers found:', detectedProviders.size);
-    console.log('[Call Tracker Detector] Details:', Array.from(detectedProviders));
+    console.log(`[Call Tracker Detector] === FOUND: ${found.size} provider(s) ===`);
+    if (found.size > 0) {
+      console.log('[Call Tracker Detector] Providers:', Array.from(found).map(id =>
+        providers.find(p => p.id === id)?.name
+      ));
+    }
 
-    return Array.from(detectedProviders);
+    return Array.from(found);
   }
 
   // Detect number swaps
   function detectNumberSwaps() {
     const swaps = [];
-    const currentNumberSet = new Set(currentNumbers.keys());
-    const originalNumberSet = new Set(originalNumbers.keys());
+    const currentSet = new Set(currentNumbers.keys());
+    const originalSet = new Set(originalNumbers.keys());
 
-    originalNumberSet.forEach(origKey => {
-      if (!currentNumberSet.has(origKey)) {
+    originalSet.forEach(origKey => {
+      if (!currentSet.has(origKey)) {
         const original = originalNumbers.get(origKey);
-        currentNumberSet.forEach(currKey => {
-          if (!originalNumberSet.has(currKey)) {
+        currentSet.forEach(currKey => {
+          if (!originalSet.has(currKey)) {
             swaps.push({
               original: original.formatted,
               tracking: currentNumbers.get(currKey).formatted,
@@ -175,7 +179,6 @@
         }
       }
     });
-    console.log('[Call Tracker Detector] Captured', originalNumbers.size, 'original numbers');
   }
 
   // Scan current numbers
@@ -228,27 +231,21 @@
         [`detection_${window.location.href}`]: results
       }).catch(() => {});
     } catch (e) {}
-
-    console.log('[Call Tracker Detector] Results saved:', results);
   }
 
-  // Run the detection
-  async function runDetection() {
-    console.log('[Call Tracker Detector] === RUNNING DETECTION ===');
+  // Run detection immediately
+  function runDetection() {
+    console.log('[Call Tracker Detector] Running detection...');
 
-    // Capture original numbers
     captureOriginalNumbers();
-
-    // Detect tracking scripts
     detectTrackingScripts();
 
-    // Wait for scripts to execute
+    // Wait only 2 seconds for number swaps
     setTimeout(() => {
       scanCurrentNumbers();
       updateBadgeAndStorage();
       scanComplete = true;
-      console.log('[Call Tracker Detector] Scan complete');
-    }, 3000);
+    }, 2000);
   }
 
   // Message listener
@@ -274,33 +271,23 @@
     }
   });
 
-  // Initialize - wait for page to fully load
+  // Initialize and run IMMEDIATELY on page load
   async function initialize() {
-    console.log('[Call Tracker Detector] Initializing...');
-
-    // Load providers
     const loaded = await loadProviders();
     if (!loaded) {
       console.error('[Call Tracker Detector] Failed to load providers');
       return;
     }
 
-    // Wait for page to be fully loaded
-    if (document.readyState === 'complete') {
-      // Already loaded
-      console.log('[Call Tracker Detector] Page already loaded, running detection');
-      setTimeout(runDetection, 1000); // Give it 1 second for dynamic scripts
+    // Run detection immediately when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', runDetection);
     } else {
-      // Wait for load event
-      console.log('[Call Tracker Detector] Waiting for page load...');
-      window.addEventListener('load', () => {
-        console.log('[Call Tracker Detector] Page loaded, running detection');
-        setTimeout(runDetection, 2000); // Give it 2 seconds for dynamic scripts
-      });
+      runDetection();
     }
   }
 
-  // Start
+  // Start immediately
   initialize();
 
 })();
