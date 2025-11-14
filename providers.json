@@ -12,22 +12,23 @@
       "signatures": [
         "swap_number",
         "CR.track",
-        "CallRail"
+        "CallRail",
+        "calltrk.com"
       ],
       "description": "CallRail call tracking service"
     },
     {
       "id": "marchex",
       "name": "Marchex",
-      "domains": ["marchex.io", "cdn.marchex.io"],
+      "domains": ["marchex.io", "cdn.marchex.io", "edge.marchex.io"],
       "scriptPatterns": [
-        "marchex",
-        "mtk"
+        "marchex"
       ],
       "signatures": [
         "marchex_track",
-        "MTK",
-        "Marchex"
+        "Marchex.SiteTracker",
+        "new Marchex",
+        "marchex.io"
       ],
       "description": "Marchex call intelligence platform"
     },
@@ -63,15 +64,17 @@
     {
       "id": "800com",
       "name": "800.com",
-      "domains": ["api.800.com", "app.800.com"],
+      "domains": ["api.800.com", "app.800.com", "dni.800.com", "js.800.com"],
       "scriptPatterns": [
-        "api.800.com",
-        "app.800.com"
+        "800.com"
       ],
       "signatures": [
         "800SessionId",
         "_800tracking",
-        "window._800"
+        "window._800",
+        "EIGHT_HUNDRED",
+        "800response",
+        "app.800.com"
       ],
       "description": "800.com call tracking service with Dynamic Number Insertion (DNI)"
     },
@@ -109,13 +112,14 @@
       "name": "Ringba",
       "domains": ["ringba.com", "b-js.ringba.com"],
       "scriptPatterns": [
-        "ringba",
+        "ringba.com",
         "b-js.ringba"
       ],
       "signatures": [
         "window._rgba",
-        "_rgba",
-        "Ringba"
+        "_rgba.q",
+        "_rgba_tags",
+        "ringba.com"
       ],
       "description": "Ringba call tracking and pay-per-call platform with Dynamic Number Insertion"
     },

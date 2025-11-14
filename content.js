@@ -63,37 +63,75 @@
     const detectedProviders = new Set();
 
     scripts.forEach(script => {
-      const src = script.src.toLowerCase();
+      try {
+        // Parse the script URL to get accurate hostname matching
+        const url = new URL(script.src);
+        const hostname = url.hostname.toLowerCase();
+        const fullUrl = script.src.toLowerCase();
 
-      providers.forEach(provider => {
-        // Check if script URL matches provider domains or patterns
-        const matchesDomain = provider.domains.some(domain => src.includes(domain.toLowerCase()));
-        const matchesPattern = provider.scriptPatterns.some(pattern =>
-          src.includes(pattern.toLowerCase())
-        );
-
-        if (matchesDomain || matchesPattern) {
-          detectedProviders.add(provider.id);
-          detectedTrackers.push({
-            provider: provider.name,
-            providerId: provider.id,
-            scriptUrl: script.src,
-            element: script
+        providers.forEach(provider => {
+          // Check if script hostname matches provider domains
+          const matchesDomain = provider.domains.some(domain => {
+            const domainLower = domain.toLowerCase();
+            // Exact match or subdomain match
+            return hostname === domainLower || hostname.endsWith('.' + domainLower);
           });
-          console.log('[Call Tracker Detector] Found', provider.name, 'script:', script.src);
-        }
-      });
+
+          // Check if full URL contains script patterns (more specific than before)
+          const matchesPattern = provider.scriptPatterns.some(pattern => {
+            const patternLower = pattern.toLowerCase();
+            // For patterns starting with /, match path
+            if (patternLower.startsWith('/')) {
+              return url.pathname.toLowerCase().includes(patternLower);
+            }
+            // For domain-like patterns, check if they're in the hostname
+            if (patternLower.includes('.')) {
+              return hostname.includes(patternLower);
+            }
+            // For other patterns, check full URL but require word boundaries
+            return fullUrl.includes(patternLower);
+          });
+
+          if (matchesDomain || matchesPattern) {
+            if (!detectedProviders.has(provider.id)) {
+              detectedProviders.add(provider.id);
+            }
+            detectedTrackers.push({
+              provider: provider.name,
+              providerId: provider.id,
+              scriptUrl: script.src,
+              element: script,
+              matchType: matchesDomain ? 'domain' : 'pattern'
+            });
+            console.log('[Call Tracker Detector] Found', provider.name, 'script:', script.src,
+                       matchesDomain ? '(domain match)' : '(pattern match)');
+          }
+        });
+      } catch (e) {
+        // Invalid URL, skip this script
+        console.log('[Call Tracker Detector] Could not parse script URL:', script.src);
+      }
     });
 
     // Also check inline scripts for signatures
     const inlineScripts = document.querySelectorAll('script:not([src])');
     inlineScripts.forEach(script => {
-      const content = script.textContent.toLowerCase();
+      const content = script.textContent;
+      const contentLower = content.toLowerCase();
 
       providers.forEach(provider => {
-        const matchesSignature = provider.signatures.some(sig =>
-          content.includes(sig.toLowerCase())
-        );
+        // Check signatures with case-sensitivity for more accuracy
+        const matchesSignature = provider.signatures.some(sig => {
+          // Try case-sensitive match first (more accurate)
+          if (content.includes(sig)) {
+            return true;
+          }
+          // Fall back to case-insensitive only if signature is all lowercase
+          if (sig === sig.toLowerCase()) {
+            return contentLower.includes(sig);
+          }
+          return false;
+        });
 
         if (matchesSignature && !detectedProviders.has(provider.id)) {
           detectedProviders.add(provider.id);
