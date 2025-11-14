@@ -3,11 +3,12 @@
 (function() {
   'use strict';
 
+  console.log('[Call Tracker Detector] Content script loaded');
+
   // Early exit if extension context is invalid
-  // This prevents errors on pages where content script was injected before extension reload
   try {
     if (!chrome.runtime || !chrome.runtime.id) {
-      console.log('[Call Tracker Detector] Extension context invalid at script load, exiting');
+      console.log('[Call Tracker Detector] Extension context invalid, exiting');
       return;
     }
   } catch (e) {
@@ -16,154 +17,99 @@
   }
 
   // State management
-  let originalNumbers = new Map(); // Store original numbers before any swaps
+  let originalNumbers = new Map();
   let detectedTrackers = [];
   let currentNumbers = new Map();
   let providers = [];
   let scanComplete = false;
-  let contextInvalidated = false; // Flag to track if we've detected invalidation
-
-  // Check if extension context is still valid
-  function isExtensionContextValid() {
-    try {
-      const isValid = chrome.runtime && chrome.runtime.id;
-      if (!isValid && !contextInvalidated) {
-        contextInvalidated = true;
-        console.log('[Call Tracker Detector] Extension context became invalid during execution');
-      }
-      return isValid;
-    } catch (e) {
-      if (!contextInvalidated) {
-        contextInvalidated = true;
-        console.log('[Call Tracker Detector] Extension context check exception:', e.message);
-      }
-      return false;
-    }
-  }
 
   // Load provider library
   async function loadProviders() {
     try {
-      if (!isExtensionContextValid()) {
-        console.log('[Call Tracker Detector] Extension context invalidated, skipping provider load');
-        return;
-      }
       const response = await fetch(chrome.runtime.getURL('providers.json'));
       const data = await response.json();
       providers = data.providers || [];
       console.log('[Call Tracker Detector] Loaded', providers.length, 'providers');
+      return true;
     } catch (error) {
       console.error('[Call Tracker Detector] Error loading providers:', error);
+      return false;
     }
   }
 
   // Detect tracking scripts in the page
   function detectTrackingScripts() {
+    console.log('[Call Tracker Detector] === STARTING DETECTION ===');
+
     const scripts = document.querySelectorAll('script[src]');
+    console.log('[Call Tracker Detector] Found', scripts.length, 'script tags on page');
+
     const detectedProviders = new Set();
+    detectedTrackers = []; // Reset
 
-    scripts.forEach(script => {
+    scripts.forEach((script, idx) => {
       const srcUrl = script.src;
+      if (!srcUrl) return;
+
+      console.log(`[Call Tracker Detector] Script ${idx + 1}: ${srcUrl}`);
+
       const srcLower = srcUrl.toLowerCase();
-
-      // Try to parse URL for hostname, but have fallback
       let hostname = '';
-      let pathname = '';
 
+      // Extract hostname
       try {
         const url = new URL(srcUrl);
         hostname = url.hostname.toLowerCase();
-        pathname = url.pathname.toLowerCase();
       } catch (e) {
-        // URL parsing failed - extract hostname manually from protocol-relative or malformed URLs
-        const urlMatch = srcLower.match(/(?:https?:)?\/\/([^\/\?#]+)/);
-        if (urlMatch) {
-          hostname = urlMatch[1];
-        }
-        console.log('[Call Tracker Detector] URL parse fallback for:', srcUrl);
+        const match = srcLower.match(/(?:https?:)?\/\/([^\/\?#]+)/);
+        if (match) hostname = match[1];
       }
 
-      if (!hostname) {
-        // Can't determine hostname, skip
-        return;
-      }
+      if (!hostname) return;
 
+      // Check each provider
       providers.forEach(provider => {
-        let matched = false;
-        let matchType = '';
-
-        // Check if script hostname matches provider domains
-        const matchesDomain = provider.domains.some(domain => {
-          const domainLower = domain.toLowerCase();
-          // Exact match or subdomain match
-          return hostname === domainLower || hostname.endsWith('.' + domainLower);
+        // Check domains
+        const domainMatch = provider.domains.some(domain => {
+          const d = domain.toLowerCase();
+          return hostname === d || hostname.endsWith('.' + d);
         });
 
-        if (matchesDomain) {
-          matched = true;
-          matchType = 'domain';
-        }
+        if (domainMatch) {
+          console.log(`[Call Tracker Detector] ✓✓✓ MATCH: ${provider.name} (domain: ${hostname})`);
 
-        // Check if URL contains script patterns
-        if (!matched) {
-          const matchesPattern = provider.scriptPatterns.some(pattern => {
-            const patternLower = pattern.toLowerCase();
-            // For patterns starting with /, match path
-            if (patternLower.startsWith('/')) {
-              return pathname.includes(patternLower);
-            }
-            // For domain-like patterns, check if they're in the hostname
-            if (patternLower.includes('.')) {
-              return hostname.includes(patternLower);
-            }
-            // For other patterns, check full URL
-            return srcLower.includes(patternLower);
-          });
-
-          if (matchesPattern) {
-            matched = true;
-            matchType = 'pattern';
-          }
-        }
-
-        if (matched) {
           if (!detectedProviders.has(provider.id)) {
             detectedProviders.add(provider.id);
           }
+
           detectedTrackers.push({
             provider: provider.name,
             providerId: provider.id,
             scriptUrl: srcUrl,
-            element: script,
-            matchType: matchType
+            element: script
           });
-          console.log('[Call Tracker Detector] Found', provider.name, 'script:', srcUrl, `(${matchType} match)`);
         }
       });
     });
 
-    // Also check inline scripts for signatures
+    // Check inline scripts
     const inlineScripts = document.querySelectorAll('script:not([src])');
+    console.log('[Call Tracker Detector] Checking', inlineScripts.length, 'inline scripts');
+
     inlineScripts.forEach(script => {
       const content = script.textContent;
+      if (!content) return;
+
       const contentLower = content.toLowerCase();
 
       providers.forEach(provider => {
-        // Check signatures - try both case-sensitive and case-insensitive
-        const matchesSignature = provider.signatures.some(sig => {
-          const sigLower = sig.toLowerCase();
-          // Try case-sensitive first (more accurate)
-          if (content.includes(sig)) {
-            return true;
-          }
-          // Try case-insensitive
-          if (contentLower.includes(sigLower)) {
-            return true;
-          }
-          return false;
+        const sigMatch = provider.signatures.some(sig => {
+          return content.includes(sig) || contentLower.includes(sig.toLowerCase());
         });
 
-        if (matchesSignature && !detectedProviders.has(provider.id)) {
+        if (sigMatch && !detectedProviders.has(provider.id)) {
+          console.log(`[Call Tracker Detector] ✓✓✓ MATCH: ${provider.name} (inline script)`);
+
           detectedProviders.add(provider.id);
           detectedTrackers.push({
             provider: provider.name,
@@ -172,75 +118,26 @@
             element: script,
             isInline: true
           });
-          console.log('[Call Tracker Detector] Found', provider.name, 'in inline script');
         }
       });
     });
 
+    console.log('[Call Tracker Detector] === DETECTION COMPLETE ===');
+    console.log('[Call Tracker Detector] Providers found:', detectedProviders.size);
+    console.log('[Call Tracker Detector] Details:', Array.from(detectedProviders));
+
     return Array.from(detectedProviders);
   }
 
-  // Capture original phone numbers from the page
-  function captureOriginalNumbers() {
-    const numbers = findPhoneNumbersInElement(document.body);
-
-    numbers.forEach(numberInfo => {
-      const key = numberInfo.normalized;
-      if (!originalNumbers.has(key)) {
-        originalNumbers.set(key, {
-          ...numberInfo,
-          foundAt: Date.now(),
-          locations: [getElementLocation(numberInfo.element)]
-        });
-      } else {
-        // Add additional location
-        const existing = originalNumbers.get(key);
-        const location = getElementLocation(numberInfo.element);
-        if (!existing.locations.includes(location)) {
-          existing.locations.push(location);
-        }
-      }
-    });
-
-    console.log('[Call Tracker Detector] Captured', originalNumbers.size, 'original numbers');
-  }
-
-  // Scan current state of phone numbers
-  function scanCurrentNumbers() {
-    currentNumbers.clear();
-    const numbers = findPhoneNumbersInElement(document.body);
-
-    numbers.forEach(numberInfo => {
-      const key = numberInfo.normalized;
-      if (!currentNumbers.has(key)) {
-        currentNumbers.set(key, {
-          ...numberInfo,
-          count: 1,
-          locations: [getElementLocation(numberInfo.element)]
-        });
-      } else {
-        currentNumbers.get(key).count++;
-        const location = getElementLocation(numberInfo.element);
-        if (!currentNumbers.get(key).locations.includes(location)) {
-          currentNumbers.get(key).locations.push(location);
-        }
-      }
-    });
-  }
-
-  // Detect number swaps by comparing original vs. current
+  // Detect number swaps
   function detectNumberSwaps() {
     const swaps = [];
     const currentNumberSet = new Set(currentNumbers.keys());
     const originalNumberSet = new Set(originalNumbers.keys());
 
-    // Find numbers that disappeared (likely replaced)
     originalNumberSet.forEach(origKey => {
       if (!currentNumberSet.has(origKey)) {
-        // This number was swapped
         const original = originalNumbers.get(origKey);
-
-        // Try to find the replacement (new numbers that appeared)
         currentNumberSet.forEach(currKey => {
           if (!originalNumberSet.has(currKey)) {
             swaps.push({
@@ -259,115 +156,52 @@
     return swaps;
   }
 
-  // Set up DOM mutation observer
-  let mutationObserver = null;
-
-  function observeDOMChanges() {
-    mutationObserver = new MutationObserver((mutations) => {
-      // Wrap everything in try-catch to handle extension context invalidation
-      try {
-        // Check context validity first and disconnect if invalid
-        if (!isExtensionContextValid()) {
-          console.log('[Call Tracker Detector] Context invalid, disconnecting observer');
-          if (mutationObserver) {
-            mutationObserver.disconnect();
-            mutationObserver = null;
-          }
-          return;
-        }
-
-        let hasPhoneChange = false;
-
-        // Process mutations with additional try-catch for accessing mutation properties
-        try {
-          mutations.forEach(mutation => {
-            try {
-              // Additional safety check: ensure target exists and is valid
-              if (!mutation.target || !mutation.target.nodeType) {
-                return;
-              }
-
-              // Check if text content changed
-              if (mutation.type === 'characterData' || mutation.type === 'childList') {
-                // Safely access textContent with null checks
-                const target = mutation.target;
-                if (target && typeof target.textContent === 'string') {
-                  const text = target.textContent || '';
-                  if (text.match(/\d{3}[-.\s]?\d{3}[-.\s]?\d{4}/)) {
-                    hasPhoneChange = true;
-                  }
-                }
-              }
-
-              // Check for attribute changes on tel: links
-              if (mutation.type === 'attributes' && mutation.attributeName === 'href') {
-                const element = mutation.target;
-                if (element && element.href && typeof element.href === 'string' && element.href.startsWith('tel:')) {
-                  hasPhoneChange = true;
-                }
-              }
-            } catch (mutationError) {
-              // Silently ignore individual mutation errors to prevent observer crash
-              // This can happen when extension context becomes invalid mid-processing
-            }
-          });
-        } catch (mutationsError) {
-          // If accessing mutations array fails, context is likely invalid
-          // Disconnect observer and return
-          if (mutationObserver) {
-            mutationObserver.disconnect();
-            mutationObserver = null;
-          }
-          return;
-        }
-
-        if (hasPhoneChange) {
-          console.log('[Call Tracker Detector] Phone number changed in DOM');
-          scanCurrentNumbers();
-
-          // Only update if extension context is still valid
-          if (isExtensionContextValid()) {
-            updateBadgeAndStorage();
-          }
-        }
-      } catch (error) {
-        // Final catch-all for any other errors
-        // Disconnect observer to prevent further errors
-        if (mutationObserver) {
-          try {
-            mutationObserver.disconnect();
-            mutationObserver = null;
-          } catch (e) {
-            // Even disconnect can fail if context is invalid
-          }
+  // Capture original phone numbers
+  function captureOriginalNumbers() {
+    const numbers = findPhoneNumbersInElement(document.body);
+    numbers.forEach(numberInfo => {
+      const key = numberInfo.normalized;
+      if (!originalNumbers.has(key)) {
+        originalNumbers.set(key, {
+          ...numberInfo,
+          foundAt: Date.now(),
+          locations: [getElementLocation(numberInfo.element)]
+        });
+      } else {
+        const existing = originalNumbers.get(key);
+        const location = getElementLocation(numberInfo.element);
+        if (!existing.locations.includes(location)) {
+          existing.locations.push(location);
         }
       }
     });
-
-    if (mutationObserver && isExtensionContextValid()) {
-      mutationObserver.observe(document.body, {
-        childList: true,
-        subtree: true,
-        characterData: true,
-        characterDataOldValue: true,
-        attributes: true,
-        attributeFilter: ['href']
-      });
-
-      console.log('[Call Tracker Detector] DOM observer active');
-    } else {
-      console.log('[Call Tracker Detector] Cannot start observer - context invalid');
-    }
+    console.log('[Call Tracker Detector] Captured', originalNumbers.size, 'original numbers');
   }
 
-  // Update extension badge and storage
-  function updateBadgeAndStorage() {
-    // Check if extension context is valid before proceeding
-    if (!isExtensionContextValid()) {
-      console.log('[Call Tracker Detector] Extension context invalidated, skipping update');
-      return;
-    }
+  // Scan current numbers
+  function scanCurrentNumbers() {
+    currentNumbers.clear();
+    const numbers = findPhoneNumbersInElement(document.body);
+    numbers.forEach(numberInfo => {
+      const key = numberInfo.normalized;
+      if (!currentNumbers.has(key)) {
+        currentNumbers.set(key, {
+          ...numberInfo,
+          count: 1,
+          locations: [getElementLocation(numberInfo.element)]
+        });
+      } else {
+        currentNumbers.get(key).count++;
+        const location = getElementLocation(numberInfo.element);
+        if (!currentNumbers.get(key).locations.includes(location)) {
+          currentNumbers.get(key).locations.push(location);
+        }
+      }
+    });
+  }
 
+  // Update badge and storage
+  function updateBadgeAndStorage() {
     const swaps = detectNumberSwaps();
 
     const results = {
@@ -376,129 +210,97 @@
       originalNumbers: Array.from(originalNumbers.values()),
       currentNumbers: Array.from(currentNumbers.values()),
       swaps: swaps,
-      timestamp: Date.now()
+      timestamp: Date.now(),
+      scanComplete: true
     };
 
-    // Send to background script
+    // Send to background
     try {
       chrome.runtime.sendMessage({
         action: 'updateDetection',
         data: results
-      }).catch(err => {
-        // Extension context may be invalid, ignore
-        console.log('[Call Tracker Detector] Could not send message:', err);
-      });
-    } catch (err) {
-      console.log('[Call Tracker Detector] Error sending message:', err);
-    }
+      }).catch(() => {});
+    } catch (e) {}
 
-    // Store in chrome.storage for popup
+    // Store locally
     try {
       chrome.storage.local.set({
-        [`detection_${getTabId()}`]: results
-      }).catch(err => {
-        console.log('[Call Tracker Detector] Could not store results:', err);
+        [`detection_${window.location.href}`]: results
+      }).catch(() => {});
+    } catch (e) {}
+
+    console.log('[Call Tracker Detector] Results saved:', results);
+  }
+
+  // Run the detection
+  async function runDetection() {
+    console.log('[Call Tracker Detector] === RUNNING DETECTION ===');
+
+    // Capture original numbers
+    captureOriginalNumbers();
+
+    // Detect tracking scripts
+    detectTrackingScripts();
+
+    // Wait for scripts to execute
+    setTimeout(() => {
+      scanCurrentNumbers();
+      updateBadgeAndStorage();
+      scanComplete = true;
+      console.log('[Call Tracker Detector] Scan complete');
+    }, 3000);
+  }
+
+  // Message listener
+  chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    if (request.action === 'getDetection') {
+      sendResponse({
+        detectedTrackers: detectedTrackers,
+        originalNumbers: Array.from(originalNumbers.values()),
+        currentNumbers: Array.from(currentNumbers.values()),
+        swaps: detectNumberSwaps(),
+        scanComplete: scanComplete
       });
-    } catch (err) {
-      console.log('[Call Tracker Detector] Error storing results:', err);
+      return true;
     }
-  }
 
-  // Get approximate tab ID (we'll use timestamp as fallback)
-  function getTabId() {
-    return window.location.href;
-  }
+    if (request.action === 'rescan') {
+      originalNumbers.clear();
+      currentNumbers.clear();
+      detectedTrackers = [];
+      runDetection();
+      sendResponse({ success: true });
+      return true;
+    }
+  });
 
-  // Initialize detection
+  // Initialize - wait for page to fully load
   async function initialize() {
     console.log('[Call Tracker Detector] Initializing...');
 
     // Load providers
-    await loadProviders();
+    const loaded = await loadProviders();
+    if (!loaded) {
+      console.error('[Call Tracker Detector] Failed to load providers');
+      return;
+    }
 
-    // Wait for DOM to be ready
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', runDetection);
+    // Wait for page to be fully loaded
+    if (document.readyState === 'complete') {
+      // Already loaded
+      console.log('[Call Tracker Detector] Page already loaded, running detection');
+      setTimeout(runDetection, 1000); // Give it 1 second for dynamic scripts
     } else {
-      runDetection();
-    }
-  }
-
-  // Run the detection process
-  function runDetection() {
-    console.log('[Call Tracker Detector] Running detection...');
-
-    // Step 1: Capture original numbers immediately
-    captureOriginalNumbers();
-
-    // Step 2: Detect tracking scripts
-    const foundProviders = detectTrackingScripts();
-
-    // Step 3: Wait a bit for tracking scripts to execute
-    setTimeout(() => {
-      try {
-        scanCurrentNumbers();
-        const swaps = detectNumberSwaps();
-
-        console.log('[Call Tracker Detector] Detection complete:', {
-          providers: foundProviders.length,
-          originalNumbers: originalNumbers.size,
-          currentNumbers: currentNumbers.size,
-          swaps: swaps.length
-        });
-
-        // Step 4: Update badge and storage (only if context is still valid)
-        if (isExtensionContextValid()) {
-          updateBadgeAndStorage();
-        } else {
-          console.log('[Call Tracker Detector] Extension context invalidated during detection, skipping badge update');
-        }
-
-        // Step 5: Start monitoring for changes
-        observeDOMChanges();
-
-        scanComplete = true;
-      } catch (error) {
-        console.log('[Call Tracker Detector] Error in detection timeout:', error);
-      }
-    }, 2000); // Wait 2 seconds for scripts to execute
-  }
-
-  // Listen for messages from popup
-  if (isExtensionContextValid()) {
-    try {
-      chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-        if (request.action === 'getDetection') {
-          const swaps = detectNumberSwaps();
-          sendResponse({
-            detectedTrackers: detectedTrackers,
-            originalNumbers: Array.from(originalNumbers.values()),
-            currentNumbers: Array.from(currentNumbers.values()),
-            swaps: swaps,
-            scanComplete: scanComplete
-          });
-          return true;
-        }
-
-        if (request.action === 'rescan') {
-          originalNumbers.clear();
-          currentNumbers.clear();
-          detectedTrackers = [];
-          runDetection();
-          sendResponse({ success: true });
-          return true;
-        }
+      // Wait for load event
+      console.log('[Call Tracker Detector] Waiting for page load...');
+      window.addEventListener('load', () => {
+        console.log('[Call Tracker Detector] Page loaded, running detection');
+        setTimeout(runDetection, 2000); // Give it 2 seconds for dynamic scripts
       });
-    } catch (error) {
-      console.log('[Call Tracker Detector] Could not add message listener:', error);
     }
   }
 
-  // Start initialization
-  if (isExtensionContextValid()) {
-    initialize();
-  } else {
-    console.log('[Call Tracker Detector] Extension context invalid at startup, not initializing');
-  }
+  // Start
+  initialize();
 
 })();
