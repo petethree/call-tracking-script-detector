@@ -20,15 +20,17 @@
     {
       "id": "marchex",
       "name": "Marchex",
-      "domains": ["marchex.io", "cdn.marchex.io", "edge.marchex.io"],
+      "domains": ["marchex.io", "cdn.marchex.io", "edge.marchex.io", "edgeapi.marchex.io", "web-2-tel.com", "js.web-2-tel.com"],
       "scriptPatterns": [
-        "marchex"
+        "marchex",
+        "web-2-tel"
       ],
       "signatures": [
         "marchex_track",
         "Marchex.SiteTracker",
         "new Marchex",
-        "marchex.io"
+        "marchex.io",
+        "web-2-tel.com"
       ],
       "description": "Marchex call intelligence platform"
     },

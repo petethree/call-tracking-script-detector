@@ -63,54 +63,83 @@
     const detectedProviders = new Set();
 
     scripts.forEach(script => {
+      const srcUrl = script.src;
+      const srcLower = srcUrl.toLowerCase();
+
+      // Try to parse URL for hostname, but have fallback
+      let hostname = '';
+      let pathname = '';
+
       try {
-        // Parse the script URL to get accurate hostname matching
-        const url = new URL(script.src);
-        const hostname = url.hostname.toLowerCase();
-        const fullUrl = script.src.toLowerCase();
+        const url = new URL(srcUrl);
+        hostname = url.hostname.toLowerCase();
+        pathname = url.pathname.toLowerCase();
+      } catch (e) {
+        // URL parsing failed - extract hostname manually from protocol-relative or malformed URLs
+        const urlMatch = srcLower.match(/(?:https?:)?\/\/([^\/\?#]+)/);
+        if (urlMatch) {
+          hostname = urlMatch[1];
+        }
+        console.log('[Call Tracker Detector] URL parse fallback for:', srcUrl);
+      }
 
-        providers.forEach(provider => {
-          // Check if script hostname matches provider domains
-          const matchesDomain = provider.domains.some(domain => {
-            const domainLower = domain.toLowerCase();
-            // Exact match or subdomain match
-            return hostname === domainLower || hostname.endsWith('.' + domainLower);
-          });
+      if (!hostname) {
+        // Can't determine hostname, skip
+        return;
+      }
 
-          // Check if full URL contains script patterns (more specific than before)
+      providers.forEach(provider => {
+        let matched = false;
+        let matchType = '';
+
+        // Check if script hostname matches provider domains
+        const matchesDomain = provider.domains.some(domain => {
+          const domainLower = domain.toLowerCase();
+          // Exact match or subdomain match
+          return hostname === domainLower || hostname.endsWith('.' + domainLower);
+        });
+
+        if (matchesDomain) {
+          matched = true;
+          matchType = 'domain';
+        }
+
+        // Check if URL contains script patterns
+        if (!matched) {
           const matchesPattern = provider.scriptPatterns.some(pattern => {
             const patternLower = pattern.toLowerCase();
             // For patterns starting with /, match path
             if (patternLower.startsWith('/')) {
-              return url.pathname.toLowerCase().includes(patternLower);
+              return pathname.includes(patternLower);
             }
             // For domain-like patterns, check if they're in the hostname
             if (patternLower.includes('.')) {
               return hostname.includes(patternLower);
             }
-            // For other patterns, check full URL but require word boundaries
-            return fullUrl.includes(patternLower);
+            // For other patterns, check full URL
+            return srcLower.includes(patternLower);
           });
 
-          if (matchesDomain || matchesPattern) {
-            if (!detectedProviders.has(provider.id)) {
-              detectedProviders.add(provider.id);
-            }
-            detectedTrackers.push({
-              provider: provider.name,
-              providerId: provider.id,
-              scriptUrl: script.src,
-              element: script,
-              matchType: matchesDomain ? 'domain' : 'pattern'
-            });
-            console.log('[Call Tracker Detector] Found', provider.name, 'script:', script.src,
-                       matchesDomain ? '(domain match)' : '(pattern match)');
+          if (matchesPattern) {
+            matched = true;
+            matchType = 'pattern';
           }
-        });
-      } catch (e) {
-        // Invalid URL, skip this script
-        console.log('[Call Tracker Detector] Could not parse script URL:', script.src);
-      }
+        }
+
+        if (matched) {
+          if (!detectedProviders.has(provider.id)) {
+            detectedProviders.add(provider.id);
+          }
+          detectedTrackers.push({
+            provider: provider.name,
+            providerId: provider.id,
+            scriptUrl: srcUrl,
+            element: script,
+            matchType: matchType
+          });
+          console.log('[Call Tracker Detector] Found', provider.name, 'script:', srcUrl, `(${matchType} match)`);
+        }
+      });
     });
 
     // Also check inline scripts for signatures
@@ -120,15 +149,16 @@
       const contentLower = content.toLowerCase();
 
       providers.forEach(provider => {
-        // Check signatures with case-sensitivity for more accuracy
+        // Check signatures - try both case-sensitive and case-insensitive
         const matchesSignature = provider.signatures.some(sig => {
-          // Try case-sensitive match first (more accurate)
+          const sigLower = sig.toLowerCase();
+          // Try case-sensitive first (more accurate)
           if (content.includes(sig)) {
             return true;
           }
-          // Fall back to case-insensitive only if signature is all lowercase
-          if (sig === sig.toLowerCase()) {
-            return contentLower.includes(sig);
+          // Try case-insensitive
+          if (contentLower.includes(sigLower)) {
+            return true;
           }
           return false;
         });
