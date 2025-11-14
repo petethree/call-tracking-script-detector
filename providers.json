@@ -74,6 +74,65 @@
         "window._800"
       ],
       "description": "800.com call tracking service with Dynamic Number Insertion (DNI)"
+    },
+    {
+      "id": "ozonetel",
+      "name": "Ozonetel",
+      "domains": ["ozonetel.com", "cloudagent.ozonetel.com", "cxhub.ozonetel.com"],
+      "scriptPatterns": [
+        "ozonetel",
+        "cloudagent"
+      ],
+      "signatures": [
+        "ozonetel",
+        "CloudAgent",
+        "OzonetelWidget"
+      ],
+      "description": "Ozonetel cloud contact center platform with call tracking capabilities"
+    },
+    {
+      "id": "callrevu",
+      "name": "CallRevu",
+      "domains": ["callrevu.com", "app.callrevu.com"],
+      "scriptPatterns": [
+        "callrevu"
+      ],
+      "signatures": [
+        "CallRevu",
+        "callrevu",
+        "CRWidget"
+      ],
+      "description": "CallRevu AI-powered communication intelligence for automotive dealerships"
+    },
+    {
+      "id": "ringba",
+      "name": "Ringba",
+      "domains": ["ringba.com", "b-js.ringba.com"],
+      "scriptPatterns": [
+        "ringba",
+        "b-js.ringba"
+      ],
+      "signatures": [
+        "window._rgba",
+        "_rgba",
+        "Ringba"
+      ],
+      "description": "Ringba call tracking and pay-per-call platform with Dynamic Number Insertion"
+    },
+    {
+      "id": "callbox",
+      "name": "CallBox / Car Wars",
+      "domains": ["callmeasurement.com", "carwars.com"],
+      "scriptPatterns": [
+        "callmeasurement",
+        "carwars"
+      ],
+      "signatures": [
+        "callmeasurement",
+        "CarWars",
+        "CallBox"
+      ],
+      "description": "CallBox by Car Wars automotive call tracking and phone management platform"
     }
   ]
 }
